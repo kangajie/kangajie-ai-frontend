@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface - Kang Ajie AI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Menggunakan font Poppins untuk seluruh halaman */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #0a0f18;
+        }
+        .gold-accent {
+            color: #FFD700;
+        }
+        /* Custom scrollbar untuk tampilan yang lebih baik di browser desktop */
+        #message-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        #message-container::-webkit-scrollbar-track {
+            background: #1A237E;
+        }
+        #message-container::-webkit-scrollbar-thumb {
+            background-color: #FFD700;
+            border-radius: 6px;
+        }
+        /* Animasi untuk indikator mengetik */
+        .typing-dot {
+            animation: typing-blink 1.4s infinite both;
+        }
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes typing-blink {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-lg p-4">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-white">Selamat Datang di <span class="gold-accent">Kang Ajie AI</span></h1>
+            <p class="text-gray-400 mt-2">Asisten cerdas Anda, siap membantu kapan saja.</p>
+        </header>
+
+        <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
+            
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
+            </div>
+
+            <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
+                <div class="flex justify-start">
+                    <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
+                        <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
+                    </div>
+                </div>
+            </main>
+
+            <div class="p-4 border-t border-gray-700">
+                <form id="chat-form" class="flex items-center space-x-3">
+                    <input type="text" id="message-input" placeholder="Ketik pesan Anda..." class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" autocomplete="off">
+                    <button type="submit" class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal"><path d="m3 3 3 9-3 9 19-9Z"/><path d="M6 12h16"/></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <footer class="text-center mt-6">
+            <p class="text-gray-500 text-sm">Hak Cipta © KangAjieDev 2025</p>
+        </footer>
+    </div>
+
+    <script>
+        // Mendapatkan elemen-elemen dari DOM
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const messageContainer = document.getElementById('message-container');
+        const sendButton = chatForm.querySelector('button');
+        
+        // URL Backend Anda
+        const BACKEND_URL = "https://kangajie-ai-backend-75lh.vercel.app";
+
+        // Menyimpan riwayat percakapan untuk menjaga konteks
+        let chatHistory = [];
+
+        // Fungsi untuk menambahkan pesan ke UI
+        function addMessage(text, sender, isTyping = false) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('flex');
+
+            const messageBubble = document.createElement('div');
+            messageBubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+
+            if (sender === 'user') {
+                messageWrapper.classList.add('justify-end');
+                messageBubble.classList.add('bg-blue-600', 'text-white');
+                messageBubble.textContent = text;
+            } else { // sender === 'ai'
+                messageWrapper.classList.add('justify-start');
+                messageBubble.classList.add('bg-gray-700', 'text-white');
+                if (isTyping) {
+                    messageBubble.innerHTML = `
+                        <div class="flex items-center space-x-1">
+                            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
+                            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
+                            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
+                        </div>
+                    `;
+                    messageBubble.id = 'typing-indicator';
+                } else {
+                    messageBubble.textContent = text;
+                }
+            }
+            
+            messageWrapper.appendChild(messageBubble);
+            messageContainer.appendChild(messageWrapper);
+
+            // Selalu scroll ke pesan paling bawah
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+            return messageWrapper;
+        }
+
+        // Menangani pengiriman form
+        chatForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+            
+            const userInput = messageInput.value.trim();
+            if (!userInput) return; 
+
+            addMessage(userInput, 'user');
+            // Tambahkan pesan user ke riwayat untuk dikirim ke backend
+            chatHistory.push({ role: "user", parts: [{ text: userInput }] });
+            
+            messageInput.value = ''; 
+            sendButton.disabled = true; 
+
+            const typingIndicator = addMessage('', 'ai', true);
+
+            // --- PANGGILAN KE BACKEND ANDA ---
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    // Mengirim seluruh riwayat untuk menjaga konteks
+                    body: JSON.stringify({ history: chatHistory, message: userInput }) 
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                // Asumsi backend mengembalikan format: { reply: "..." }
+                const aiResponse = result.reply || "Maaf, saya tidak mendapat balasan yang valid.";
+                
+                // Hapus indikator "mengetik"
+                typingIndicator.remove();
+                
+                // Tampilkan respons AI dan tambahkan ke riwayat
+                addMessage(aiResponse, 'ai');
+                chatHistory.push({ role: "model", parts: [{ text: aiResponse }] });
+
+            } catch (error) {
+                console.error("Error saat memanggil Backend API:", error);
+                typingIndicator.remove();
+                addMessage(`Maaf, terjadi kesalahan: ${error.message}`, 'ai');
+            } finally {
+                sendButton.disabled = false; 
+                messageInput.focus();
+            }
+        });
+    </script>
+</body>
+</html>
