@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat Interface - Kang Ajie AI</title>
-  
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -24,7 +24,6 @@
       color: #FFD700;
     }
 
-    /* Scrollbar styling */
     #message-container::-webkit-scrollbar {
       width: 6px;
     }
@@ -38,28 +37,25 @@
       border-radius: 6px;
     }
 
-    /* Typing indicator animation */
     .typing-dot {
       animation: typing-blink 1.4s infinite both;
     }
 
-    .typing-dot:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-
-    .typing-dot:nth-child(3) {
-      animation-delay: 0.4s;
-    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
     @keyframes typing-blink {
       0% { opacity: 0.2; }
       20% { opacity: 1; }
       100% { opacity: 0.2; }
     }
+
+    .chat-paragraph {
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body class="flex items-center justify-center min-h-screen">
-
   <div class="w-full max-w-lg p-4">
     <!-- Header -->
     <header class="text-center mb-6">
@@ -76,10 +72,10 @@
       </div>
 
       <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
-        <!-- Default greeting -->
+        <!-- Greeting -->
         <div class="flex justify-start">
-          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
-            <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
+          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs whitespace-pre-wrap">
+            Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?
           </div>
         </div>
       </main>
@@ -87,22 +83,15 @@
       <!-- Input Area -->
       <div class="p-4 border-t border-gray-700">
         <form id="chat-form" class="flex items-center space-x-3">
-          <input 
-            type="text" 
-            id="message-input" 
-            placeholder="Ketik pesan Anda..." 
-            class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" 
-            autocomplete="off"
-            required 
-          />
-          <button 
-            type="submit" 
-            class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Kirim pesan"
-          >
+          <input type="text" id="message-input" placeholder="Ketik pesan Anda..." 
+                 class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" 
+                 autocomplete="off" required />
+          <button type="submit" 
+                  class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Kirim pesan">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-              class="lucide lucide-send-horizontal">
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="lucide lucide-send-horizontal">
               <path d="m3 3 3 9-3 9 19-9Z"/>
               <path d="M6 12h16"/>
             </svg>
@@ -117,7 +106,7 @@
     </footer>
   </div>
 
-  <!-- Chatbot Logic -->
+  <!-- JavaScript -->
   <script>
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
@@ -132,7 +121,7 @@
       wrapper.classList.add('flex', sender === 'user' ? 'justify-end' : 'justify-start');
 
       const bubble = document.createElement('div');
-      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white');
+      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white', 'whitespace-pre-wrap');
       bubble.setAttribute("role", "alert");
       bubble.classList.add(sender === 'user' ? 'bg-blue-600' : 'bg-gray-700');
 
@@ -146,15 +135,11 @@
         `;
         bubble.id = 'typing-indicator';
       } else {
-        if (sender === 'ai') {
-          const formatted = text
-            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')   // **bold**
-            .replace(/^\*\s(.*)$/gm, '• $1')          // * bullet
-            .replace(/\n/g, '<br>');                  // newline → <br>
-          bubble.innerHTML = formatted;
-        } else {
-          bubble.textContent = text;
-        }
+        // Format teks agar rapi: pisah tiap paragraf
+        bubble.innerHTML = text
+          .split(/\n{2,}/) // pisah paragraf (2 enter atau lebih)
+          .map(p => `<p class="chat-paragraph">${p.replace(/\n/g, '<br>')}</p>`)
+          .join('');
       }
 
       wrapper.appendChild(bubble);
@@ -189,6 +174,7 @@
         const aiReply = data.reply || "Maaf, saya tidak bisa memberikan jawaban saat ini.";
         addMessage(aiReply, 'ai');
         chatHistory.push({ role: "model", parts: [{ text: aiReply }] });
+
       } catch (err) {
         console.error("API Error:", err);
         typing.remove();
