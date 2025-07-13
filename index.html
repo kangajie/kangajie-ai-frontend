@@ -3,15 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kang Ajie AI - Chatbot</title>
-
+  <title>Chat Interface - Kang Ajie AI</title>
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
+  
   <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-  <!-- Custom Styles -->
+  <!-- Custom Style -->
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -22,28 +24,33 @@
       color: #FFD700;
     }
 
-    /* Scrollbar */
+    /* Scrollbar styling */
     #message-container::-webkit-scrollbar {
       width: 6px;
     }
+
     #message-container::-webkit-scrollbar-track {
       background: #1A237E;
     }
+
     #message-container::-webkit-scrollbar-thumb {
       background-color: #FFD700;
       border-radius: 6px;
     }
 
-    /* Typing animation */
+    /* Typing indicator animation */
     .typing-dot {
       animation: typing-blink 1.4s infinite both;
     }
+
     .typing-dot:nth-child(2) {
       animation-delay: 0.2s;
     }
+
     .typing-dot:nth-child(3) {
       animation-delay: 0.4s;
     }
+
     @keyframes typing-blink {
       0% { opacity: 0.2; }
       20% { opacity: 1; }
@@ -64,22 +71,20 @@
 
     <!-- Chat Box -->
     <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
-      <!-- Header -->
       <div class="p-4 border-b border-gray-700">
         <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
       </div>
 
-      <!-- Messages -->
       <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
         <!-- Default greeting -->
         <div class="flex justify-start">
-          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs whitespace-pre-line">
-            Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?
+          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
+            <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
           </div>
         </div>
       </main>
 
-      <!-- Input -->
+      <!-- Input Area -->
       <div class="p-4 border-t border-gray-700">
         <form id="chat-form" class="flex items-center space-x-3">
           <input 
@@ -112,7 +117,7 @@
     </footer>
   </div>
 
-  <!-- Script -->
+  <!-- Chatbot Logic -->
   <script>
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
@@ -127,7 +132,7 @@
       wrapper.classList.add('flex', sender === 'user' ? 'justify-end' : 'justify-start');
 
       const bubble = document.createElement('div');
-      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white', 'whitespace-pre-line');
+      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white');
       bubble.setAttribute("role", "alert");
       bubble.classList.add(sender === 'user' ? 'bg-blue-600' : 'bg-gray-700');
 
@@ -141,7 +146,15 @@
         `;
         bubble.id = 'typing-indicator';
       } else {
-        bubble.textContent = text;
+        if (sender === 'ai') {
+          const formatted = text
+            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')   // **bold**
+            .replace(/^\*\s(.*)$/gm, '• $1')          // * bullet
+            .replace(/\n/g, '<br>');                  // newline → <br>
+          bubble.innerHTML = formatted;
+        } else {
+          bubble.textContent = text;
+        }
       }
 
       wrapper.appendChild(bubble);
