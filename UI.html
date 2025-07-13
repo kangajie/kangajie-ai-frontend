@@ -1,193 +1,201 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Interface - Kang Ajie AI</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Interface - Kang Ajie AI</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-    <style>
-        /* Menggunakan font Poppins untuk seluruh halaman */
-        body {
-            font-family: 'Poppins', sans-serif;
-            background-color: #0a0f18;
-        }
-        .gold-accent {
-            color: #FFD700;
-        }
-        /* Custom scrollbar untuk tampilan yang lebih baik di browser desktop */
-        #message-container::-webkit-scrollbar {
-            width: 6px;
-        }
-        #message-container::-webkit-scrollbar-track {
-            background: #1A237E;
-        }
-        #message-container::-webkit-scrollbar-thumb {
-            background-color: #FFD700;
-            border-radius: 6px;
-        }
-        /* Animasi untuk indikator mengetik */
-        .typing-dot {
-            animation: typing-blink 1.4s infinite both;
-        }
-        .typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        .typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-        @keyframes typing-blink {
-            0% { opacity: 0.2; }
-            20% { opacity: 1; }
-            100% { opacity: 0.2; }
-        }
-    </style>
+  <!-- Custom Style -->
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #0a0f18;
+    }
+
+    .gold-accent {
+      color: #FFD700;
+    }
+
+    /* Scrollbar styling */
+    #message-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #message-container::-webkit-scrollbar-track {
+      background: #1A237E;
+    }
+
+    #message-container::-webkit-scrollbar-thumb {
+      background-color: #FFD700;
+      border-radius: 6px;
+    }
+
+    /* Typing indicator animation */
+    .typing-dot {
+      animation: typing-blink 1.4s infinite both;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes typing-blink {
+      0% { opacity: 0.2; }
+      20% { opacity: 1; }
+      100% { opacity: 0.2; }
+    }
+  </style>
 </head>
 <body class="flex items-center justify-center min-h-screen">
 
-    <div class="w-full max-w-lg p-4">
-        <header class="text-center mb-6">
-            <h1 class="text-3xl md:text-4xl font-bold text-white">Selamat Datang di <span class="gold-accent">Kang Ajie AI</span></h1>
-            <p class="text-gray-400 mt-2">Asisten cerdas Anda, siap membantu kapan saja.</p>
-        </header>
+  <div class="w-full max-w-lg p-4">
+    <!-- Header -->
+    <header class="text-center mb-6">
+      <h1 class="text-3xl md:text-4xl font-bold text-white">
+        Selamat Datang di <span class="gold-accent">Kang Ajie AI</span>
+      </h1>
+      <p class="text-gray-400 mt-2">Asisten cerdas Anda, siap membantu kapan saja.</p>
+    </header>
 
-        <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
-            
-            <div class="p-4 border-b border-gray-700">
-                <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
-            </div>
+    <!-- Chat Box -->
+    <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
+      <div class="p-4 border-b border-gray-700">
+        <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
+      </div>
 
-            <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
-                <div class="flex justify-start">
-                    <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
-                        <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
-                    </div>
-                </div>
-            </main>
-
-            <div class="p-4 border-t border-gray-700">
-                <form id="chat-form" class="flex items-center space-x-3">
-                    <input type="text" id="message-input" placeholder="Ketik pesan Anda..." class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" autocomplete="off">
-                    <button type="submit" class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal"><path d="m3 3 3 9-3 9 19-9Z"/><path d="M6 12h16"/></svg>
-                    </button>
-                </form>
-            </div>
+      <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
+        <!-- Default greeting -->
+        <div class="flex justify-start">
+          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
+            <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
+          </div>
         </div>
+      </main>
 
-        <footer class="text-center mt-6">
-            <p class="text-gray-500 text-sm">Hak Cipta © KangAjieDev 2025</p>
-        </footer>
+      <!-- Input Area -->
+      <div class="p-4 border-t border-gray-700">
+        <form id="chat-form" class="flex items-center space-x-3">
+          <input 
+            type="text" 
+            id="message-input" 
+            placeholder="Ketik pesan Anda..." 
+            class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" 
+            autocomplete="off"
+            required 
+          />
+          <button 
+            type="submit" 
+            class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Kirim pesan"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="lucide lucide-send-horizontal">
+              <path d="m3 3 3 9-3 9 19-9Z"/>
+              <path d="M6 12h16"/>
+            </svg>
+          </button>
+        </form>
+      </div>
     </div>
 
-    <script>
-        // Mendapatkan elemen-elemen dari DOM
-        const chatForm = document.getElementById('chat-form');
-        const messageInput = document.getElementById('message-input');
-        const messageContainer = document.getElementById('message-container');
-        const sendButton = chatForm.querySelector('button');
-        
-        // URL Backend Anda
-        const BACKEND_URL = "https://kangajie-ai-backend-75lh.vercel.app";
+    <!-- Footer -->
+    <footer class="text-center mt-6">
+      <p class="text-gray-500 text-sm">Hak Cipta © KangAjieDev 2025</p>
+    </footer>
+  </div>
 
-        // Menyimpan riwayat percakapan untuk menjaga konteks
-        let chatHistory = [];
+  <!-- Chatbot Logic -->
+  <script>
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const messageContainer = document.getElementById('message-container');
+    const sendButton = chatForm.querySelector('button');
 
-        // Fungsi untuk menambahkan pesan ke UI
-        function addMessage(text, sender, isTyping = false) {
-            const messageWrapper = document.createElement('div');
-            messageWrapper.classList.add('flex');
+    const BACKEND_URL = "https://kangajie-ai-backend-75lh.vercel.app";
+    let chatHistory = [];
 
-            const messageBubble = document.createElement('div');
-            messageBubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+    function addMessage(text, sender, isTyping = false) {
+      const wrapper = document.createElement('div');
+      wrapper.classList.add('flex');
+      if (sender === 'user') {
+        wrapper.classList.add('justify-end');
+      } else {
+        wrapper.classList.add('justify-start');
+      }
 
-            if (sender === 'user') {
-                messageWrapper.classList.add('justify-end');
-                messageBubble.classList.add('bg-blue-600', 'text-white');
-                messageBubble.textContent = text;
-            } else { // sender === 'ai'
-                messageWrapper.classList.add('justify-start');
-                messageBubble.classList.add('bg-gray-700', 'text-white');
-                if (isTyping) {
-                    messageBubble.innerHTML = `
-                        <div class="flex items-center space-x-1">
-                            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
-                            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
-                            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
-                        </div>
-                    `;
-                    messageBubble.id = 'typing-indicator';
-                } else {
-                    messageBubble.textContent = text;
-                }
-            }
-            
-            messageWrapper.appendChild(messageBubble);
-            messageContainer.appendChild(messageWrapper);
+      const bubble = document.createElement('div');
+      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white');
+      bubble.setAttribute("role", "alert");
 
-            // Selalu scroll ke pesan paling bawah
-            messageContainer.scrollTop = messageContainer.scrollHeight;
-            return messageWrapper;
-        }
+      if (isTyping) {
+        bubble.classList.add('bg-gray-700');
+        bubble.innerHTML = `
+          <div class="flex items-center space-x-1">
+            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
+            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
+            <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
+          </div>
+        `;
+        bubble.id = 'typing-indicator';
+      } else {
+        bubble.textContent = text;
+        bubble.classList.add(sender === 'user' ? 'bg-blue-600' : 'bg-gray-700');
+      }
 
-        // Menangani pengiriman form
-        chatForm.addEventListener('submit', async (event) => {
-            event.preventDefault(); 
-            
-            const userInput = messageInput.value.trim();
-            if (!userInput) return; 
+      wrapper.appendChild(bubble);
+      messageContainer.appendChild(wrapper);
+      messageContainer.scrollTop = messageContainer.scrollHeight;
+      return wrapper;
+    }
 
-            addMessage(userInput, 'user');
-            // Tambahkan pesan user ke riwayat untuk dikirim ke backend
-            chatHistory.push({ role: "user", parts: [{ text: userInput }] });
-            
-            messageInput.value = ''; 
-            sendButton.disabled = true; 
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userText = messageInput.value.trim();
+      if (!userText) return;
 
-            const typingIndicator = addMessage('', 'ai', true);
+      addMessage(userText, 'user');
+      chatHistory.push({ role: "user", parts: [{ text: userText }] });
 
-            // --- PANGGILAN KE BACKEND ANDA ---
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/chat`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    // Mengirim seluruh riwayat untuk menjaga konteks
-                    body: JSON.stringify({ history: chatHistory, message: userInput }) 
-                });
+      messageInput.value = '';
+      sendButton.disabled = true;
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-                }
+      const typing = addMessage('', 'ai', true);
 
-                const result = await response.json();
-                
-                // Asumsi backend mengembalikan format: { reply: "..." }
-                const aiResponse = result.reply || "Maaf, saya tidak mendapat balasan yang valid.";
-                
-                // Hapus indikator "mengetik"
-                typingIndicator.remove();
-                
-                // Tampilkan respons AI dan tambahkan ke riwayat
-                addMessage(aiResponse, 'ai');
-                chatHistory.push({ role: "model", parts: [{ text: aiResponse }] });
-
-            } catch (error) {
-                console.error("Error saat memanggil Backend API:", error);
-                typingIndicator.remove();
-                addMessage(`Maaf, terjadi kesalahan: ${error.message}`, 'ai');
-            } finally {
-                sendButton.disabled = false; 
-                messageInput.focus();
-            }
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ history: chatHistory, message: userText })
         });
-    </script>
+
+        const data = await res.json();
+        typing.remove();
+
+        const aiReply = data.reply || "Maaf, saya tidak bisa memberikan jawaban saat ini.";
+        addMessage(aiReply, 'ai');
+        chatHistory.push({ role: "model", parts: [{ text: aiReply }] });
+      } catch (err) {
+        console.error("API Error:", err);
+        typing.remove();
+        addMessage("Terjadi kesalahan saat menghubungi server.", 'ai');
+      } finally {
+        sendButton.disabled = false;
+        messageInput.focus();
+      }
+    });
+  </script>
 </body>
 </html>
