@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,32 +12,48 @@
       font-family: 'Poppins', sans-serif;
       background-color: #0a0f18;
     }
+
     #message-container::-webkit-scrollbar {
       width: 6px;
     }
+
     #message-container::-webkit-scrollbar-thumb {
       background-color: #FFD700;
       border-radius: 6px;
     }
+
     .typing-dot {
       animation: typing-blink 1.4s infinite both;
     }
+
     .typing-dot:nth-child(2) {
       animation-delay: 0.2s;
     }
+
     .typing-dot:nth-child(3) {
       animation-delay: 0.4s;
     }
+
     @keyframes typing-blink {
-      0% { opacity: 0.2; }
-      20% { opacity: 1; }
-      100% { opacity: 0.2; }
+      0% {
+        opacity: 0.2;
+      }
+
+      20% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0.2;
+      }
     }
+
     .chat-paragraph {
       margin-bottom: 1rem;
     }
   </style>
 </head>
+
 <body class="flex items-center justify-center min-h-screen px-2">
   <div class="w-full max-w-md">
     <!-- Header -->
@@ -46,7 +63,8 @@
     </header>
 
     <!-- Chat Box -->
-    <div id="chat-window" class="flex flex-col h-[70vh] bg-[#0d1321] rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
+    <div id="chat-window"
+      class="flex flex-col h-[70vh] bg-[#0d1321] rounded-2xl shadow-xl border border-gray-700 overflow-hidden">
       <!-- Chat Header -->
       <div class="p-4 border-b border-gray-700">
         <h2 class="text-lg font-semibold text-center text-white">Live Chat</h2>
@@ -63,21 +81,14 @@
       </main>
 
       <!-- Input Area -->
-      <form id="chat-form" class="flex items-center gap-2 p-4 border-t border-gray-700 bg-[#0d1321]">
-        <input
-          type="text"
-          id="message-input"
-          placeholder="Ketik pesan Anda..."
-          class="flex-1 h-12 px-4 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-          autocomplete="off"
-          required
-        />
-        <button
-          type="submit"
-          class="h-12 w-12 flex items-center justify-center bg-yellow-500 text-[#1A237E] rounded-lg hover:bg-yellow-400 transition disabled:opacity-50"
-          aria-label="Kirim"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor"
+      <form id="chat-form" class="flex items-center justify-between gap-2 p-4 border-t border-gray-700 bg-[#0d1321]">
+        <input type="text" id="message-input" placeholder="Ketik pesan Anda..."
+          class="flex-1 h-11 px-4 text-sm bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+          autocomplete="off" required />
+        <button type="submit"
+          class="h-11 w-11 flex items-center justify-center bg-yellow-500 text-[#1A237E] rounded-md hover:bg-yellow-400 transition disabled:opacity-50"
+          aria-label="Kirim">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor"
             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal">
             <path d="m3 3 3 9-3 9 19-9Z" />
             <path d="M6 12h16" />
@@ -107,9 +118,8 @@
       wrapper.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
 
       const bubble = document.createElement('div');
-      bubble.className = `p-3 rounded-lg max-w-xs break-words text-white whitespace-pre-wrap ${
-        sender === 'user' ? 'bg-blue-600' : 'bg-gray-700'
-      }`;
+      bubble.className = `p-3 rounded-lg max-w-xs break-words text-white whitespace-pre-wrap ${sender === 'user' ? 'bg-blue-600' : 'bg-gray-700'
+        }`;
 
       if (isTyping) {
         bubble.innerHTML = `
@@ -170,4 +180,5 @@
     });
   </script>
 </body>
+
 </html>
