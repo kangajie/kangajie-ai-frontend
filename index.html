@@ -71,7 +71,7 @@
 </head>
 
 <body class="flex items-center justify-center min-h-screen">
-  <div class="w-full max-w-md p-4">
+  <div class="w-full max-w-sm p-4">
     <!-- Header -->
     <header class="text-center mb-6">
       <h1 class="text-3xl md:text-4xl font-bold text-white">
@@ -81,11 +81,13 @@
     </header>
 
     <!-- Chat Box -->
-    <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
+    <div id="chat-window" class="h-[65vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+      <!-- Chat Header -->
       <div class="p-4 border-b border-gray-700">
         <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
       </div>
 
+      <!-- Message Area -->
       <main id="message-container" class="flex-1 p-4 overflow-y-auto space-y-4">
         <!-- Greeting -->
         <div class="flex justify-start">
@@ -96,14 +98,21 @@
       </main>
 
       <!-- Input Area -->
-      <div class="p-4 border-t border-gray-700">
-        <form id="chat-form" class="flex items-stretch gap-2 w-full">
-          <input type="text" id="message-input" placeholder="Ketik pesan Anda..."
+      <div class="border-t border-gray-700">
+        <form id="chat-form" class="flex w-full px-4 py-3 gap-2 bg-[#0d1321]">
+          <input
+            type="text"
+            id="message-input"
+            placeholder="Ketik pesan Anda..."
             class="flex-1 h-12 px-4 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-            autocomplete="off" required />
-          <button type="submit"
-            class="h-12 aspect-square bg-yellow-500 text-[#1A237E] rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            aria-label="Kirim pesan">
+            autocomplete="off"
+            required
+          />
+          <button
+            type="submit"
+            class="h-12 w-12 flex items-center justify-center bg-yellow-500 text-[#1A237E] rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Kirim pesan"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal">
               <path d="m3 3 3 9-3 9 19-9Z" />
@@ -120,7 +129,7 @@
     </footer>
   </div>
 
-  <!-- JavaScript -->
+  <!-- Chat Logic -->
   <script>
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
