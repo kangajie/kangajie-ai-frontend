@@ -81,11 +81,12 @@
       </main>
 
       <!-- Input Area -->
-      <form id="chat-form"
-        class="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-700 bg-[#0d1321]">
-        <input type="text" id="message-input" placeholder="Ketik pesan..."
-          class="flex-1 h-9 px-3 py-1 text-sm bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-          autocomplete="off" required />
+      <form id="chat-form" class="flex items-center justify-between p-2 border-t border-gray-700 bg-[#0d1321] gap-2">
+        <div class="flex-1">
+          <input type="text" id="message-input" placeholder="Ketik pesan..."
+            class="w-full h-9 px-3 py-1 text-sm bg-gray-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+            autocomplete="off" required />
+        </div>
         <button type="submit"
           class="h-9 w-9 flex items-center justify-center bg-yellow-500 text-[#1A237E] rounded-md hover:bg-yellow-400 transition disabled:opacity-50"
           aria-label="Kirim">
@@ -96,6 +97,7 @@
           </svg>
         </button>
       </form>
+
     </div>
 
     <!-- Footer -->
