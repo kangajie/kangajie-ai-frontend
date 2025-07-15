@@ -1,21 +1,18 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="asset/img/logo.png" type="image/png">
-  <title>KangAjie AI</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Interface - Kang Ajie AI</title>
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
+  
   <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-  <!-- Custom Style -->
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -30,10 +27,6 @@
       width: 6px;
     }
 
-    #message-container::-webkit-scrollbar-track {
-      background: #1A237E;
-    }
-
     #message-container::-webkit-scrollbar-thumb {
       background-color: #FFD700;
       border-radius: 6px;
@@ -42,86 +35,72 @@
     .typing-dot {
       animation: typing-blink 1.4s infinite both;
     }
-
-    .typing-dot:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-
-    .typing-dot:nth-child(3) {
-      animation-delay: 0.4s;
-    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
     @keyframes typing-blink {
-      0% {
-        opacity: 0.2;
-      }
-
-      20% {
-        opacity: 1;
-      }
-
-      100% {
-        opacity: 0.2;
-      }
-    }
-
-    .chat-paragraph {
-      margin-bottom: 1rem;
+      0%, 100% { opacity: 0.2; }
+      20% { opacity: 1; }
     }
   </style>
 </head>
+<body class="bg-[#0a0f18] text-white flex flex-col min-h-screen">
 
-<body class="flex items-center justify-center min-h-screen">
-  <div class="w-full max-w-lg p-4">
+  <!-- Container -->
+  <div class="flex-grow flex flex-col items-center px-4 py-6">
     <!-- Header -->
-    <header class="text-center mb-6">
-      <h1 class="text-3xl md:text-4xl font-bold text-white">
-        Selamat Datang di <span class="gold-accent">KangAjie AI</span>
+    <header class="text-center mb-4 w-full max-w-xl">
+      <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
+        Selamat Datang di <span class="gold-accent">Kang Ajie AI</span>
       </h1>
-      <p class="text-gray-400 mt-2">Asisten cerdas Anda, siap membantu kapan saja.</p>
+      <p class="text-gray-400 text-sm sm:text-base mt-1">Asisten cerdas Anda, siap membantu kapan saja.</p>
     </header>
 
     <!-- Chat Box -->
-    <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
-      <div class="p-4 border-b border-gray-700">
-        <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
+    <div class="flex flex-col w-full max-w-xl bg-[#0d1321] rounded-2xl shadow-lg border border-gray-700 overflow-hidden flex-grow">
+      
+      <!-- Chat Header -->
+      <div class="p-4 border-b border-gray-700 bg-[#0d1321]">
+        <h2 class="text-lg sm:text-xl font-semibold text-center">Live Chat</h2>
       </div>
 
-      <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
-        <!-- Greeting -->
+      <!-- Chat Body -->
+      <main id="message-container" class="flex-1 p-4 overflow-y-auto space-y-4">
         <div class="flex justify-start">
-          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs text-left">
+          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
             <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
           </div>
         </div>
       </main>
 
-      <!-- Input Area -->
-      <div class="p-4 border-t border-gray-700">
-        <form id="chat-form" class="flex items-center space-x-3">
-          <input type="text" id="message-input" placeholder="Ketik pesan Anda..."
-            class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-            autocomplete="off" required />
-          <button type="submit"
-            class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Kirim pesan">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal">
-              <path d="m3 3 3 9-3 9 19-9Z" />
-              <path d="M6 12h16" />
-            </svg>
-          </button>
-        </form>
-      </div>
+      <!-- Chat Input -->
+      <form id="chat-form" class="flex items-center gap-3 p-4 border-t border-gray-700 bg-[#0d1321]">
+        <input 
+          type="text" 
+          id="message-input" 
+          placeholder="Ketik pesan Anda..." 
+          class="flex-1 p-3 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+          autocomplete="off" required />
+        <button 
+          type="submit"
+          class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Kirim pesan">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 3 3 9-3 9 19-9Z"/>
+            <path d="M6 12h16"/>
+          </svg>
+        </button>
+      </form>
     </div>
 
     <!-- Footer -->
-    <footer class="text-center mt-6">
-      <p class="text-gray-500 text-sm">Hak Cipta © KangAjieDev 2025</p>
+    <footer class="text-center text-sm text-gray-500 mt-6 mb-8">
+      Hak Cipta © KangAjieDev 2025
     </footer>
   </div>
 
-  <!-- JavaScript -->
+  <!-- Chatbot Logic -->
   <script>
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
@@ -133,14 +112,16 @@
 
     function addMessage(text, sender, isTyping = false) {
       const wrapper = document.createElement('div');
-      wrapper.classList.add('flex', sender === 'user' ? 'justify-end' : 'justify-start');
+      wrapper.classList.add('flex');
+      if (sender === 'user') wrapper.classList.add('justify-end');
+      else wrapper.classList.add('justify-start');
 
       const bubble = document.createElement('div');
-      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white', 'whitespace-pre-wrap');
+      bubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'break-words', 'text-white');
       bubble.setAttribute("role", "alert");
-      bubble.classList.add(sender === 'user' ? 'bg-blue-600' : 'bg-gray-700');
 
       if (isTyping) {
+        bubble.classList.add('bg-gray-700');
         bubble.innerHTML = `
           <div class="flex items-center space-x-1">
             <span class="typing-dot w-2 h-2 bg-gray-400 rounded-full"></span>
@@ -150,11 +131,8 @@
         `;
         bubble.id = 'typing-indicator';
       } else {
-        // Format teks agar rapi: pisah tiap paragraf
-        bubble.innerHTML = text
-          .split(/\n{2,}/) // pisah paragraf (2 enter atau lebih)
-          .map(p => `<p class="chat-paragraph">${p.replace(/\n/g, '<br>')}</p>`)
-          .join('');
+        bubble.textContent = text;
+        bubble.classList.add(sender === 'user' ? 'bg-blue-600' : 'bg-gray-700');
       }
 
       wrapper.appendChild(bubble);
@@ -189,7 +167,6 @@
         const aiReply = data.reply || "Maaf, saya tidak bisa memberikan jawaban saat ini.";
         addMessage(aiReply, 'ai');
         chatHistory.push({ role: "model", parts: [{ text: aiReply }] });
-
       } catch (err) {
         console.error("API Error:", err);
         typing.remove();
@@ -201,5 +178,4 @@
     });
   </script>
 </body>
-
 </html>
