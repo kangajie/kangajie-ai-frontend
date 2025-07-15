@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="asset/img/logo.png" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" href="asset/img/logo.png" type="image/png" />
   <title>KangAjie AI</title>
 
   <!-- Tailwind CSS -->
@@ -13,9 +12,8 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-  <!-- Custom Style -->
   <style>
     body {
       font-family: 'Poppins', sans-serif;
@@ -52,17 +50,9 @@
     }
 
     @keyframes typing-blink {
-      0% {
-        opacity: 0.2;
-      }
-
-      20% {
-        opacity: 1;
-      }
-
-      100% {
-        opacity: 0.2;
-      }
+      0% { opacity: 0.2; }
+      20% { opacity: 1; }
+      100% { opacity: 0.2; }
     }
 
     .chat-paragraph {
@@ -71,57 +61,57 @@
   </style>
 </head>
 
-<body class="flex items-center justify-center min-h-screen">
-  <div class="w-full max-w-lg p-4">
+<body class="flex items-center justify-center min-h-screen px-4">
+  <div class="w-full max-w-lg max-w-[95vw] p-4 flex flex-col">
     <!-- Header -->
-    <header class="text-center mb-6">
+    <header class="text-center mb-4">
       <h1 class="text-3xl md:text-4xl font-bold text-white">
         Selamat Datang di <span class="gold-accent">KangAjie AI</span>
       </h1>
-      <p class="text-gray-400 mt-2">Asisten cerdas Anda, siap membantu kapan saja.</p>
+      <p class="text-gray-400 mt-1">Asisten cerdas Anda, siap membantu kapan saja.</p>
     </header>
 
-    <!-- Chat Box -->
-    <div id="chat-window" class="h-[60vh] flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700">
+    <!-- Chat Window -->
+    <div id="chat-window" class="flex flex-col bg-[#0d1321] rounded-2xl shadow-2xl border border-gray-700 w-full h-[70vh] max-h-[80vh] overflow-hidden">
+      <!-- Chat Header -->
       <div class="p-4 border-b border-gray-700">
-        <h2 class="text-xl font-semibold text-center text-white">Live Chat</h2>
+        <h2 class="text-lg font-semibold text-center text-white">Live Chat</h2>
       </div>
 
-      <main id="message-container" class="flex-1 p-6 overflow-y-auto space-y-4">
-        <!-- Greeting -->
+      <!-- Chat Messages -->
+      <main id="message-container" class="flex-1 p-4 overflow-y-auto space-y-4">
         <div class="flex justify-start">
-          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs text-left">
+          <div class="bg-gray-700 text-white p-3 rounded-lg max-w-xs">
             <p>Halo! Saya Kang Ajie AI, ada yang bisa saya bantu hari ini?</p>
           </div>
         </div>
       </main>
 
       <!-- Input Area -->
-      <div class="p-4 border-t border-gray-700">
-        <form id="chat-form" class="flex items-center space-x-3">
-          <input type="text" id="message-input" placeholder="Ketik pesan Anda..."
-            class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
-            autocomplete="off" required />
-          <button type="submit"
-            class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Kirim pesan">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-horizontal">
-              <path d="m3 3 3 9-3 9 19-9Z" />
-              <path d="M6 12h16" />
-            </svg>
-          </button>
-        </form>
-      </div>
+      <form id="chat-form" class="flex items-center gap-3 p-4 border-t border-gray-700">
+        <input type="text" id="message-input" placeholder="Ketik pesan Anda..."
+          class="flex-1 p-3 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 transition"
+          autocomplete="off" required />
+        <button type="submit"
+          class="bg-yellow-500 text-[#1A237E] p-3 rounded-lg hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Kirim pesan">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            class="lucide lucide-send-horizontal">
+            <path d="m3 3 3 9-3 9 19-9Z" />
+            <path d="M6 12h16" />
+          </svg>
+        </button>
+      </form>
     </div>
 
     <!-- Footer -->
-    <footer class="text-center mt-6">
-      <p class="text-gray-500 text-sm">Hak Cipta © KangAjieDev 2025</p>
+    <footer class="text-center text-sm text-gray-500 mt-6">
+      Hak Cipta © KangAjieDev 2025
     </footer>
   </div>
 
-  <!-- JavaScript -->
+  <!-- Chat Logic -->
   <script>
     const chatForm = document.getElementById('chat-form');
     const messageInput = document.getElementById('message-input');
@@ -150,9 +140,8 @@
         `;
         bubble.id = 'typing-indicator';
       } else {
-        // Format teks agar rapi: pisah tiap paragraf
         bubble.innerHTML = text
-          .split(/\n{2,}/) // pisah paragraf (2 enter atau lebih)
+          .split(/\n{2,}/)
           .map(p => `<p class="chat-paragraph">${p.replace(/\n/g, '<br>')}</p>`)
           .join('');
       }
@@ -201,5 +190,4 @@
     });
   </script>
 </body>
-
 </html>
