@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KangAjie AI</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="asset/img/logo.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0F0F10;
+            color: #F0F0F0;
+            overflow: hidden;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #EAB308;
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .typing-dot {
+            animation: typing 1.4s infinite both;
+        }
+
+        @keyframes typing {
+            0% {
+                opacity: 0.2;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.2;
+            }
+        }
+
+        /* Code Blocks */
+        .code-wrapper {
+            margin: 10px 0;
+            border: 1px solid #2A2A2E;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #0d0d0d;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: #1A1A1C;
+            border-bottom: 1px solid #2A2A2E;
+            color: #888;
+            font-size: 11px;
+        }
+
+        pre {
+            margin: 0 !important;
+            padding: 12px !important;
+            overflow-x: auto;
+            background: transparent !important;
+        }
+
+        code {
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        .prose p {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        /* Responsive prose text sizes */
+        .prose { font-size: 15px; }
+        @media (max-width: 480px) { .prose { font-size: 14px; } }
+
+        /* Safe area insets for notch/home-bar devices */
+        .safe-bottom {
+            padding-bottom: max(56px, env(safe-area-inset-bottom));
+        }
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .safe-bottom { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+        }
+
+        /* Chat messages padding on mobile */
+        @media (max-width: 767px) {
+            #chat-container { padding-left: 12px; padding-right: 12px; }
+            .msg-bubble-wrap { max-width: 92% !important; }
+        }
+
+        /* Input area sticky on iOS */
+        @supports (-webkit-touch-callout: none) {
+            .input-area-wrap { padding-bottom: env(safe-area-inset-bottom, 16px); }
+        }
+
+        /* === SIDEBAR LOGIC === */
+        #sidebar {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+        }
+
+        .hide-on-collapsed {
+            transition: opacity 0.2s, width 0.2s;
+            opacity: 1;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        /* DESKTOP MODE */
+        @media (min-width: 768px) {
+            #sidebar {
+                width: 280px;
+                min-width: 280px;
+                max-width: 280px;
+            }
+
+            #sidebar.collapsed {
+                width: 72px;
+                min-width: 72px;
+                max-width: 72px;
+            }
+
+            #sidebar.collapsed .hide-on-collapsed {
+                opacity: 0;
+                width: 0;
+                pointer-events: none;
+            }
+
+            #sidebar.collapsed .sidebar-padding {
+                padding: 0;
+                justify-content: center;
+            }
+
+            #sidebar.collapsed .chat-btn-wrapper {
+                padding: 0;
+                justify-content: center;
+                background: transparent;
+                border: none;
+                width: 40px;
+                height: 40px;
+            }
+
+            #sidebar.collapsed .chat-btn-icon {
+                background-color: #1A1A1C;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #sidebar.collapsed .header-content {
+                justify-content: center;
+                padding: 0;
+            }
+        }
+
+        /* MOBILE MODE */
+        @media (max-width: 768px) {
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 280px;
+                transform: translateX(-100%);
+            }
+
+            #sidebar.mobile-open {
+                transform: translateX(0);
+                box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
+            }
+
+            #sidebar.collapsed {
+                width: 280px;
+            }
+        }
+    </style>
+</head>
+
+<body class="flex h-[100dvh] w-full bg-[#0F0F10] overflow-hidden">
+
+    <div id="mobile-overlay" onclick="toggleSidebar()"
+        class="fixed inset-0 bg-black/70 z-40 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+
+    <!-- Pustaka Modal -->
+    <div id="pustaka-modal" style="display: none;" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-0 md:p-8 backdrop-blur-md">
+        <div class="bg-[#121214] border-0 md:border border-[#2A2A2E] rounded-none md:rounded-2xl shadow-2xl w-full max-w-4xl h-full md:h-[85vh] flex flex-col overflow-hidden fade-in">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-[#1F1F21] flex justify-between items-center bg-[#1A1A1C]">
+                <h2 class="text-xl font-bold flex items-center gap-2"><i class="fa-solid fa-book-open text-blue-500"></i> Perpustakaan</h2>
+                <button onclick="document.getElementById('pustaka-modal').style.display = 'none'" class="text-gray-500 hover:text-red-500 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="px-6 py-3 border-b border-[#1F1F21] flex gap-4 text-sm bg-[#1A1A1C]">
+                <button onclick="filterPustaka('Semua')" id="tab-Semua" class="px-4 py-1.5 rounded-full bg-gray-200 text-black font-semibold transition">Semua</button>
+                <button onclick="filterPustaka('Gambar')" id="tab-Gambar" class="px-4 py-1.5 rounded-full text-gray-400 hover:text-white transition">Gambar</button>
+                <button onclick="filterPustaka('File')" id="tab-File" class="px-4 py-1.5 rounded-full text-gray-400 hover:text-white transition">File</button>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-y-auto p-6" id="pustaka-content">
+                <div class="w-full text-center text-gray-500 py-10"><i class="fa-solid fa-circle-notch fa-spin text-2xl"></i><p class="mt-2">Memuat file...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <aside id="sidebar" class="bg-[#0F0F10] border-r border-[#1F1F21] flex flex-col h-full flex-shrink-0">
+        <div class="h-16 flex items-center justify-between px-5 border-b border-transparent header-content">
+            <span
+                class="text-[10px] font-bold tracking-widest uppercase text-gray-500 hide-on-collapsed flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-yellow-500"></i> Dashboard
+            </span>
+            <button onclick="toggleSidebar()"
+                class="text-gray-400 hover:text-yellow-500 p-2 rounded-full hover:bg-yellow-500/10 transition cursor-pointer flex-shrink-0"
+                title="Menu">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <div class="px-4 py-4 sidebar-padding flex justify-center">
+            <button onclick="startNewChat()"
+                class="chat-btn-wrapper flex items-center gap-3 w-full px-4 py-3.5 bg-[#1A1A1C] hover:bg-[#252528] rounded-xl text-sm text-gray-200 transition border border-[#2A2A2E] hover:border-yellow-500/50 group cursor-pointer shadow-lg active:scale-95 overflow-hidden whitespace-nowrap">
+                <div
+                    class="chat-btn-icon w-6 h-6 rounded-full bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500 transition shrink-0">
+                    <i class="fa-solid fa-plus text-yellow-500 text-[10px] group-hover:text-black"></i>
+                </div>
+                <span class="font-semibold hide-on-collapsed group-hover:text-white">Chat Baru</span>
+            </button>
+        </div>
+        <div class="px-4 pb-2 sidebar-padding flex justify-center hide-on-guest" id="pustaka-btn-container">
+            <button onclick="openPustaka()"
+                class="chat-btn-wrapper flex items-center gap-3 w-full px-4 py-2.5 bg-[#1A1A1C] hover:bg-[#252528] rounded-xl text-sm text-gray-400 transition border border-[#2A2A2E] hover:border-blue-500/50 group cursor-pointer shadow-sm active:scale-95 overflow-hidden whitespace-nowrap">
+                <div class="chat-btn-icon w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500 transition shrink-0">
+                    <i class="fa-solid fa-book-open text-blue-500 text-[10px] group-hover:text-white"></i>
+                </div>
+                <span class="font-semibold hide-on-collapsed group-hover:text-white">Pustaka</span>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-3 hide-on-collapsed">
+            <div class="px-2 py-2 text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Riwayat</div>
+            <div id="history-list" class="space-y-1 pb-4"></div>
+        </div>
+
+        <div class="p-4 mt-auto border-t border-[#1F1F21] bg-[#0F0F10] sidebar-padding flex justify-center">
+            <div onclick="handleProfileClick()"
+                class="flex items-center gap-3 p-2 rounded-xl hover:bg-[#1A1A1C] cursor-pointer transition group w-full justify-center">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-yellow-600 to-yellow-400 flex items-center justify-center text-black font-bold shadow-lg flex-shrink-0"
+                    id="user-avatar">?</div>
+                <div class="flex-1 min-w-0 overflow-hidden hide-on-collapsed">
+                    <p id="user-display"
+                        class="text-sm font-bold truncate text-gray-200 group-hover:text-yellow-500 transition">
+                        Loading...</p>
+                    <p id="status-display"
+                        class="text-[10px] text-gray-500 truncate group-hover:text-yellow-500 transition">...</p>
+                </div>
+                <i
+                    class="fa-solid fa-right-from-bracket text-gray-600 group-hover:text-red-500 transition text-xs hide-on-collapsed"></i>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative bg-[#0F0F10] w-full min-w-0 h-full overflow-hidden">
+        <div
+            class="flex items-center justify-between px-4 py-3 md:px-8 md:py-5 border-b border-[#1F1F21] md:border-none bg-[#0F0F10]/90 backdrop-blur z-30 shrink-0">
+            <div class="flex items-center gap-4 w-full">
+                <button onclick="toggleSidebar()" class="text-gray-400 hover:text-yellow-500 md:hidden transition">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <div class="flex items-center gap-2 cursor-pointer overflow-hidden">
+                    <span id="header-title"
+                        class="text-lg font-bold text-white tracking-tight drop-shadow-sm truncate max-w-[200px] md:max-w-md">KangAjie
+                        <span class="text-yellow-500">AI</span></span>
+                    <span
+                        class="bg-yellow-500/10 text-yellow-500 text-[9px] px-2 py-0.5 rounded-full border border-yellow-500/20 font-bold shrink-0">Free-Tier</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-container" class="flex-1 overflow-y-auto px-3 md:px-0 pt-3 pb-6 scroll-smooth"></div>
+
+        <div class="input-area-wrap w-full bg-[#0F0F10] pt-2 px-3 md:px-4 z-40 shrink-0" style="padding-bottom: max(16px, env(safe-area-inset-bottom));">
+            <div class="max-w-3xl mx-auto relative">
+                <div id="file-preview-container"
+                    class="hidden absolute bottom-full mb-3 left-0 bg-[#1A1A1C] p-2 rounded-xl border border-[#333] flex items-center gap-3 fade-in shadow-xl w-full md:w-auto max-w-full overflow-hidden">
+                    <div id="preview-content" class="shrink-0"></div>
+                    <span id="file-name" class="text-xs text-gray-300 truncate max-w-[150px]">file.png</span>
+                    <button onclick="clearFile()" class="text-gray-500 hover:text-red-500 ml-auto p-2"><i
+                            class="fa-solid fa-xmark"></i></button>
+                </div>
+
+                <form onsubmit="event.preventDefault(); sendMessage();"
+                    class="flex items-end gap-2 bg-[#1A1A1C] p-2 rounded-[26px] border border-[#2A2A2E] shadow-2xl focus-within:border-yellow-500/50 transition-colors w-full">
+                    <input type="file" id="file-upload" class="hidden" onchange="handleFileSelect(event)">
+
+                    <button type="button" onclick="triggerFileUpload()"
+                        class="text-gray-400 hover:text-yellow-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition hover:bg-yellow-500/10"
+                        title="Upload">
+                        <i class="fa-solid fa-plus text-lg"></i>
+                    </button>
+
+                    <textarea id="msg-input" rows="1"
+                        class="flex-1 bg-transparent border-none text-white focus:ring-0 py-3 px-2 outline-none resize-none max-h-32 text-[15px] placeholder-gray-500"
+                        placeholder="Ketik pesan..."></textarea>
+
+                    <button type="submit" id="send-btn"
+                        class="text-black bg-white hover:bg-yellow-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-arrow-up text-sm font-bold"></i>
+                    </button>
+
+                    <button type="button" id="stop-btn" onclick="stopGeneration()"
+                        class="hidden text-white bg-red-500 hover:bg-red-600 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg animate-pulse">
+                        <i class="fa-solid fa-square text-sm"></i>
+                    </button>
+                </form>
+                <p class="text-center text-[10px] text-gray-500 mt-3 mb-1 px-4 leading-tight shrink-0">KangAjie AI dapat membuat kesalahan, Mohon Dimaafkan Yah.</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="reset-password-modal"
+        class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center backdrop-blur-sm px-4">
+        <div class="bg-[#141415] border border-[#2A2A2E] p-6 rounded-2xl w-full max-w-md shadow-2xl relative fade-in">
+            <h3 class="text-xl font-bold text-white mb-2">Buat Password Baru</h3>
+            <p class="text-gray-400 text-xs mb-4">Silakan masukkan password baru untuk akun Anda.</p>
+
+            <form onsubmit="event.preventDefault(); updateNewPassword();">
+                <div class="mb-4">
+                    <input type="password" id="new-password"
+                        class="w-full px-4 py-3 bg-[#1A1A1C] border border-[#2A2A2E] rounded-xl text-white focus:border-yellow-500 focus:outline-none placeholder-gray-600 text-sm transition"
+                        placeholder="Password baru (min. 8 karakter)" required minlength="8">
+                </div>
+                <button type="submit" id="btn-update-pass"
+                    class="w-full bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold py-3 rounded-xl transition text-sm shadow-lg">
+                    Simpan Password Baru
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://bljmcpntnubxdyxfjpyg.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_VQKO_b2YYSQqhQYyht2SWA_dLK1_Bre';
+        const BACKEND_URL = "https://kangajie-ai-backend.vercel.app";
+
+        let supabaseClient, currentUser, isGuest;
+        let chatHistoryLocal = [];
+        let currentSessionId = crypto.randomUUID();
+        let currentFile = null, currentFileType = null, currentFileName = null;
+        let abortController = null;
+
+        let guestHistoryStorage = [];
+        let guestSessionsStorage = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            isGuest = localStorage.getItem('isGuest') === 'true';
+
+            const input = document.getElementById('msg-input');
+            input.addEventListener('input', function () { this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px'; });
+            input.addEventListener('paste', handlePaste);
+
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (event === 'PASSWORD_RECOVERY') {
+                    document.getElementById('reset-password-modal').classList.remove('hidden');
+                }
+            });
+
+            const hash = window.location.hash;
+            if (hash && hash.includes('type=recovery')) {
+                document.getElementById('reset-password-modal').classList.remove('hidden');
+            }
+
+            supabaseClient.auth.getSession().then(({ data }) => {
+                if (data.session || isGuest) {
+                    currentUser = data.session?.user;
+                    setupUI();
+                    startNewChat(false);
+                    loadSidebarHistory();
+                } else {
+                    if (!hash || !hash.includes('access_token')) {
+                        window.location.href = '/login';
+                    }
+                }
+            });
+        });
+
+        async function updateNewPassword() {
+            const newPass = document.getElementById('new-password').value;
+            const btn = document.getElementById('btn-update-pass');
+
+            if (newPass.length < 8) return alert("Password minimal 8 karakter!");
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan...`;
+
+            try {
+                const { data, error } = await supabaseClient.auth.updateUser({
+                    password: newPass
+                });
+
+                if (error) throw error;
+
+                alert("Sukses! Password berhasil diperbarui.");
+                document.getElementById('reset-password-modal').classList.add('hidden');
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+            } catch (err) {
+                alert("Gagal: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Simpan Password Baru";
+            }
+        }
+
+        async function loadSidebarHistory() {
+            const list = document.getElementById('history-list'); list.innerHTML = '';
+            let sessions = [];
+            if (isGuest) { sessions = [...guestSessionsStorage].reverse(); }
+            else {
+                if (!currentUser) return;
+                const { data, error } = await supabaseClient.from('chat_sessions').select('session_id, title, created_at').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+                if (!error && data) sessions = data;
+            }
+            sessions.forEach(sess => createSidebarItem(sess.title || "Percakapan Baru", sess.session_id));
+        }
+
+        function createSidebarItem(msg, sessionId) {
+            const list = document.getElementById('history-list');
+            const div = document.createElement('div');
+            div.setAttribute('data-session', sessionId);
+            div.className = "flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#1A1A1C] cursor-pointer text-gray-400 hover:text-white transition group mb-1 border border-transparent hover:border-[#2A2A2E]";
+            const deleteAction = isGuest ? `deleteGuestSession(event, '${sessionId}')` : `deleteSession(event, '${sessionId}')`;
+            div.innerHTML = `
+        <div class="flex items-center gap-3 overflow-hidden w-full" onclick="loadSession('${sessionId}')">
+            <i class="fa-regular fa-message text-[10px] group-hover:text-yellow-500 shrink-0"></i>
+            <span class="truncate text-xs font-medium w-full text-left group-hover:text-yellow-500 transition max-w-[170px] block">${msg}</span>
+        </div>
+        <button onclick="${deleteAction}" class="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition shrink-0">
+            <i class="fa-solid fa-trash-can text-[10px]"></i>
+        </button>`;
+            list.appendChild(div);
+        }
+
+        async function saveSessionTitle(sessionId, title) {
+            if (isGuest) {
+                const index = guestSessionsStorage.findIndex(s => s.session_id === sessionId);
+                if (index !== -1) guestSessionsStorage[index].title = title;
+                else guestSessionsStorage.push({ session_id: sessionId, title: title, created_at: new Date().toISOString() });
+            } else if (currentUser) {
+                await supabaseClient.from('chat_sessions').upsert({ session_id: sessionId, user_id: currentUser.id, title: title }, { onConflict: 'session_id' });
+            }
+        }
+
+        function stopGeneration() {
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+                const loaders = document.querySelectorAll('.typing-dot');
+                if (loaders.length > 0) loaders[0].parentElement.remove();
+                toggleSendButton(true);
+                renderMessage("⛔ *Dihentikan oleh pengguna.*", 'ai');
+            }
+        }
+
+        function toggleSendButton(isIdle) {
+            const sendBtn = document.getElementById('send-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            if (isIdle) {
+                sendBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
+            } else {
+                sendBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+            }
+        }
+
+        window.editMessage = function (text, element) {
+            const input = document.getElementById('msg-input');
+            input.value = text;
+            input.focus();
+            element.closest('.flex').remove();
+        }
+
+        window.sendMessage = async function () {
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text && !currentFile) return;
+
+            abortController = new AbortController();
+            toggleSendButton(false);
+
+            let activeUserName = "Teman";
+            if (currentUser && currentUser.email) {
+                const namePart = currentUser.email.split('@')[0];
+                activeUserName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+            } else if (isGuest) {
+                activeUserName = "Sobat AI";
+            }
+
+            if (chatHistoryLocal.length === 0) {
+                const tempTitle = "Menganalisis topik...";
+                createSidebarItem(tempTitle, currentSessionId);
+                const list = document.getElementById('history-list');
+                const newItem = document.querySelector(`[data-session="${currentSessionId}"]`);
+                if (list && newItem) list.insertBefore(newItem, list.firstChild);
+                saveSessionTitle(currentSessionId, tempTitle);
+            }
+
+            let displayHtml = text.replace(/\n/g, '<br>');
+            if (currentFile && currentFileType.startsWith('image')) displayHtml = `<img src="${currentFile}" class="max-w-[200px] rounded-lg mb-2 border border-[#333]"> <br>${displayHtml}`;
+            else if (currentFile) displayHtml = `[FILE TERLAMPIR] ${displayHtml}`;
+
+            input.value = '';
+            renderMessage(displayHtml, 'user', true, text);
+            chatHistoryLocal.push({ role: "user", parts: [{ text }] });
+            saveData('user', displayHtml);
+
+            const fileToSend = currentFile;
+            const typeToSend = currentFileType;
+            const fileNameToSend = currentFileName;
+            clearFile();
+            const loadId = renderLoading();
+
+            try {
+                const payload = {
+                    history: chatHistoryLocal,
+                    message: text,
+                    fileData: fileToSend,
+                    mimeType: typeToSend,
+                    fileName: fileNameToSend,
+                    userName: activeUserName
+                };
+
+                const res = await fetch(`${BACKEND_URL}/api/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                    signal: abortController.signal
+                });
+
+                const data = await res.json();
+                document.getElementById(loadId)?.remove();
+
+                renderMessage(data.reply, 'ai');
+                chatHistoryLocal.push({ role: "model", parts: [{ text: data.reply }] });
+                saveData('ai', data.reply);
+
+                if (data.title) {
+                    const sidebarItem = document.querySelector(`[data-session="${currentSessionId}"]`);
+                    if (sidebarItem) {
+                        const textSpan = sidebarItem.querySelector('span');
+                        if (textSpan) {
+                            textSpan.innerText = data.title;
+                            textSpan.classList.add('text-yellow-500');
+                            setTimeout(() => textSpan.classList.remove('text-yellow-500'), 1000);
+                        }
+                    }
+                    saveSessionTitle(currentSessionId, data.title);
+                }
+
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    console.log('Fetch aborted');
+                } else {
+                    document.getElementById(loadId)?.remove();
+                    console.error(err);
+                    renderMessage(`⚠️ Error: ${err.message || "Gagal terhubung."}`, 'ai');
+                }
+            } finally {
+                toggleSendButton(true);
+                abortController = null;
+            }
+        };
+
+        function saveData(role, text) {
+            if (isGuest) {
+                guestHistoryStorage.push({ session_id: currentSessionId, role, message: text, created_at: new Date().toISOString() });
+            } else if (currentUser) {
+                supabaseClient.from('chat_history').insert([{ user_id: currentUser.id, session_id: currentSessionId, role, message: text }]).then();
+            }
+        }
+
+        async function loadSession(id) {
+            currentSessionId = id;
+            chatHistoryLocal = [];
+            const c = document.getElementById('chat-container');
+            c.innerHTML = '<div class="flex items-center justify-center h-full"><span class="text-gray-500 animate-pulse">Memuat ingatan...</span></div>';
+            document.getElementById('sidebar').classList.remove('mobile-open');
+            document.getElementById('mobile-overlay').classList.add('hidden');
+
+            let msgs = [];
+            if (isGuest) {
+                msgs = guestHistoryStorage.filter(m => m.session_id === id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else {
+                const { data } = await supabaseClient.from('chat_history').select('*').eq('session_id', id).order('created_at', { ascending: true });
+                msgs = data || [];
+            }
+
+            if (msgs.length > 0) {
+                c.innerHTML = '';
+                msgs.forEach(m => {
+                    const cleanText = m.message.replace(/<br>/g, '\n').replace(/\[FILE.*?\] /g, '');
+                    renderMessage(m.message, m.role, false, cleanText);
+                    chatHistoryLocal.push({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.message }] });
+                });
+                c.scrollTop = c.scrollHeight;
+            } else {
+                c.innerHTML = '<div class="text-center mt-10 text-gray-500">Percakapan kosong</div>';
+            }
+        }
+
+        async function deleteSession(e, id) {
+            e.stopPropagation(); if (!confirm("Hapus percakapan ini?")) return;
+            await supabaseClient.from('chat_history').delete().eq('session_id', id);
+            await supabaseClient.from('chat_sessions').delete().eq('session_id', id);
+            document.querySelector(`[data-session="${id}"]`).remove();
+            if (currentSessionId === id) startNewChat();
+        }
+
+        function deleteGuestSession(e, id) {
+            e.stopPropagation(); if (!confirm("Hapus percakapan ini?")) return;
+            guestHistoryStorage = guestHistoryStorage.filter(m => m.session_id !== id);
+            guestSessionsStorage = guestSessionsStorage.filter(m => m.session_id !== id);
+            document.querySelector(`[data-session="${id}"]`).remove();
+            if (currentSessionId === id) startNewChat();
+        }
+
+        function processFile(f) {
+            if (!f) return;
+
+            // Batas 10MB
+            const limitMB = 10;
+            if (f.size > limitMB * 1024 * 1024) {
+                alert(`⚠️ File terlalu besar! Maksimal ${limitMB}MB.\nFile ini ${(f.size / 1024 / 1024).toFixed(1)}MB.`);
+                document.getElementById('file-upload').value = '';
+                return;
+            }
+
+            // Peringatan jika file teks/kode > 500KB (kemungkinan dipotong AI)
+            const ext = f.name.split('.').pop()?.toLowerCase() || '';
+            const isLikelyText = ['txt','md','csv','json','xml','yaml','yml','py','js','ts','html','css','sql','log','tsv'].includes(ext);
+            if (isLikelyText && f.size > 500 * 1024) {
+                const proceed = confirm(`⚠️ File "${f.name}" cukup besar (${(f.size/1024).toFixed(0)} KB).\n\nKonten yang dikirim ke AI mungkin akan dipotong jika melebihi batas.\n\nLanjutkan?`);
+                if (!proceed) { document.getElementById('file-upload').value = ''; return; }
+            }
+
+            // Deteksi tipe MIME yang lebih baik
+            let type = f.type || 'application/octet-stream';
+            if (f.name.endsWith('.docx')) type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            if (f.name.endsWith('.txt')) type = 'text/plain';
+            if (f.name.endsWith('.csv')) type = 'text/csv';
+            if (f.name.endsWith('.json')) type = 'application/json';
+            if (f.name.endsWith('.yaml') || f.name.endsWith('.yml')) type = 'application/x-yaml';
+            if (f.name.endsWith('.xml')) type = 'application/xml';
+
+            const r = new FileReader();
+            r.onload = (e) => {
+                let res = e.target.result;
+
+                if (f.type.startsWith('image')) {
+                    const i = new Image(); i.src = res;
+                    i.onload = () => {
+                        const c = document.createElement('canvas'), x = c.getContext('2d');
+                        const m = 800, s = m / i.width, w = (i.width > m) ? m : i.width, h = (i.width > m) ? i.height * s : i.height;
+                        c.width = w; c.height = h; x.drawImage(i, 0, 0, w, h);
+                        currentFile = c.toDataURL('image/jpeg', 0.7);
+                        currentFileType = 'image/jpeg';
+                        currentFileName = f.name;
+                        showPreview(f.name, currentFileType, currentFile);
+                    };
+                } else {
+                    currentFile = res;
+                    currentFileType = type;
+                    currentFileName = f.name;
+                    showPreview(f.name, currentFileType, currentFile);
+                }
+            };
+            r.readAsDataURL(f);
+        }
+
+        function renderMessage(text, role, animate = true, rawTextForEdit = "") {
+            const c = document.getElementById('chat-container');
+            document.getElementById('empty-state')?.remove();
+            const isAI = role === 'ai' || role === 'model';
+            const div = document.createElement('div');
+            div.className = `w-full flex ${isAI ? 'justify-start' : 'justify-end'} mb-6 fade-in group/msg`;
+            const av = isAI ? `<div class="w-8 h-8 rounded-full border border-[#333] flex items-center justify-center shrink-0 mt-1"><i class="fa-solid fa-robot text-yellow-500 text-xs"></i></div>` : ``;
+            const cls = isAI ? "text-gray-200" : "bg-[#1E1E20] border border-[#2A2A2E] rounded-[20px] px-5 py-3 shadow-sm text-white";
+
+            // SAFETY FIX: Membersihkan text agar tidak merusak tombol edit
+            let safeText = "";
+            if (!isAI && rawTextForEdit) {
+                safeText = rawTextForEdit
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'")
+                    .replace(/"/g, '&quot;')
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '');
+            }
+
+            const editBtn = !isAI ? `<button onclick="editMessage('${safeText}', this)" class="opacity-0 group-hover/msg:opacity-100 absolute -left-8 top-2 text-gray-500 hover:text-white transition"><i class="fa-solid fa-pencil text-xs"></i></button>` : '';
+
+            div.innerHTML = `<div class="msg-bubble-wrap max-w-[92%] sm:max-w-[85%] md:max-w-[75%] flex gap-2 md:gap-3 ${isAI ? 'flex-row md:pl-4' : 'flex-row-reverse md:pr-4'} items-start px-0 relative">${editBtn}${av}<div class="prose prose-invert ${cls} min-w-0 overflow-hidden break-words"><div class="markdown-body"></div></div></div>`;
+            c.appendChild(div);
+            const b = div.querySelector('.markdown-body');
+            if (isAI && animate) { let i = 0; const int = setInterval(() => { b.innerHTML = marked.parse(text.substring(0, i)); i += 5; if (i > text.length) { clearInterval(int); b.innerHTML = marked.parse(text); addCodeFeatures(div); addImageFeatures(div); } c.scrollTop = c.scrollHeight; }, 5); } else { b.innerHTML = isAI ? marked.parse(text) : text; if (isAI) { addCodeFeatures(div); addImageFeatures(div); } } c.scrollTop = c.scrollHeight;
+        }
+
+        function addCodeFeatures(c) { c.querySelectorAll('pre').forEach(p => { const code = p.querySelector('code'); let l = 'Code'; if (code?.className) l = code.className.replace('language-', '').toUpperCase(); const w = document.createElement('div'); w.className = 'code-wrapper'; w.innerHTML = `<div class="code-header"><span class="font-bold text-gray-400">${l}</span><div class="flex items-center gap-4"><button class="flex items-center gap-1 hover:text-yellow-500 transition" onclick="downloadCode(this, '${l.toLowerCase()}')"><i class="fa-solid fa-download"></i> Unduh</button><button class="flex items-center gap-1 hover:text-yellow-500 transition" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Salin</button></div></div>`; const n = p.cloneNode(true); w.appendChild(n); p.replaceWith(w); hljs.highlightElement(w.querySelector('code')); }); }
+        window.copyCode = function (b) { navigator.clipboard.writeText(b.closest('.code-wrapper').querySelector('code').innerText); const o = b.innerHTML; b.innerHTML = `<i class="fa-solid fa-check text-green-500"></i>`; setTimeout(() => b.innerHTML = o, 2000); }
+        window.downloadCode = async function (b, lang) { if(isGuest) { if(confirm("Harap Login terlebih dahulu untuk menyimpan kode. Login sekarang?")) window.location.href='/login'; return; } const codeText = b.closest('.code-wrapper').querySelector('code').innerText; const extMap = { 'javascript': 'js', 'typescript': 'ts', 'python': 'py', 'html': 'html', 'css': 'css', 'json': 'json', 'bash': 'sh', 'shell': 'sh', 'sql': 'sql', 'php': 'php', 'java': 'java', 'cpp': 'cpp', 'c': 'c', 'csharp': 'cs', 'go': 'go', 'ruby': 'rb', 'rust': 'rs', 'yaml': 'yml', 'xml': 'xml', 'markdown': 'md', 'text': 'txt', 'code': 'txt' }; const ext = extMap[lang] || lang || 'txt'; const filename = `KangAjieCode.${ext}`; const blob = new Blob([codeText], { type: 'text/plain' }); await uploadToSupabasePustaka(blob, filename); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); window.URL.revokeObjectURL(url); const o = b.innerHTML; b.innerHTML = `<i class="fa-solid fa-check text-green-500"></i>`; setTimeout(() => b.innerHTML = o, 2000); }
+        function addImageFeatures(c) {
+            c.querySelectorAll('.markdown-body img').forEach(img => {
+                if (img.parentElement.classList.contains('img-content')) return;
+                const w = document.createElement('div');
+                w.className = 'code-wrapper my-4 w-full max-w-[600px]';
+                const h = document.createElement('div');
+                h.className = 'code-header flex justify-between items-center';
+                h.innerHTML = '<span class="font-bold text-gray-400 flex items-center gap-2"><i class="fa-solid fa-image text-yellow-500"></i> AI Generator</span>';
+                const btn = document.createElement('button');
+                btn.className = 'flex items-center gap-1 hover:text-yellow-500 transition text-xs';
+                btn.innerHTML = '<i class="fa-solid fa-download"></i> Simpan';
+                btn.onclick = async (e) => {
+                    e.preventDefault();
+                    if (isGuest) {
+                        if(confirm("Harap Login terlebih dahulu untuk menyimpan gambar. Login sekarang?")) window.location.href='/login';
+                        return;
+                    }
+                    const oldHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan';
+                    try {
+                        const res = await fetch(img.src);
+                        const blob = await res.blob();
+                        const imgObj = new Image();
+                        imgObj.crossOrigin = 'Anonymous';
+                        const url = window.URL.createObjectURL(blob);
+                        imgObj.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = imgObj.width; canvas.height = imgObj.height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(imgObj, 0, 0);
+                            canvas.toBlob(async (pngBlob) => {
+                                const filename = `KangAjie-AI-${Date.now()}.png`;
+                                await uploadToSupabasePustaka(pngBlob, filename);
+                                const pngUrl = window.URL.createObjectURL(pngBlob);
+                                const a = document.createElement('a'); a.href = pngUrl; a.download = filename; a.click(); window.URL.revokeObjectURL(pngUrl);
+                            }, 'image/png');
+                            window.URL.revokeObjectURL(url);
+                        };
+                        imgObj.src = url;
+                        btn.innerHTML = '<i class="fa-solid fa-check text-green-500"></i> Tersimpan';
+                    } catch (err) { window.open(img.src, '_blank'); btn.innerHTML = oldHtml; }
+                    setTimeout(() => { if (btn.innerHTML.includes('Tersimpan')) btn.innerHTML = oldHtml; }, 2000);
+                };
+                h.appendChild(btn);
+                const content = document.createElement('div');
+                content.className = 'img-content bg-[#000000] flex justify-center items-center';
+                img.parentNode.insertBefore(w, img);
+                content.appendChild(img);
+                w.appendChild(h); w.appendChild(content);
+                img.className = 'w-full h-auto block';
+            });
+        }
+        function showPreview(n, t, s) {
+            document.getElementById('file-preview-container').classList.remove('hidden');
+            document.getElementById('file-name').innerText = n;
+            const p = document.getElementById('preview-content');
+            if (t.startsWith('image')) {
+                p.innerHTML = `<img src="${s}" class="w-8 h-8 object-cover rounded border border-gray-600">`;
+            } else {
+                const ext = n.split('.').pop()?.toLowerCase() || '';
+                const icons = {
+                    pdf: 'fa-file-pdf text-red-400', word: 'fa-file-word text-blue-400',
+                    docx: 'fa-file-word text-blue-400', doc: 'fa-file-word text-blue-400',
+                    xlsx: 'fa-file-excel text-green-400', xls: 'fa-file-excel text-green-400',
+                    csv: 'fa-file-csv text-green-400', ods: 'fa-file-excel text-green-400',
+                    pptx: 'fa-file-powerpoint text-orange-400', ppt: 'fa-file-powerpoint text-orange-400',
+                    zip: 'fa-file-zipper text-yellow-400', rar: 'fa-file-zipper text-yellow-400',
+                    '7z': 'fa-file-zipper text-yellow-400',
+                    json: 'fa-file-code text-yellow-300', xml: 'fa-file-code text-yellow-300',
+                    py: 'fa-file-code text-blue-300', js: 'fa-file-code text-yellow-300',
+                    ts: 'fa-file-code text-blue-400', html: 'fa-file-code text-orange-300',
+                    css: 'fa-file-code text-purple-300', sql: 'fa-database text-cyan-400',
+                };
+                const iconClass = icons[ext] || icons[Object.keys(icons).find(k => ext.includes(k)) || ''] || 'fa-file text-gray-400';
+                p.innerHTML = `<i class="fa-solid ${iconClass} text-xl"></i>`;
+            }
+        }
+        function clearFile() { currentFile = null; currentFileName = null; document.getElementById('file-upload').value = ''; document.getElementById('file-preview-container').classList.add('hidden'); }
+        function renderLoading() { const id = "load-" + Date.now(); const d = document.createElement('div'); d.id = id; d.className = "flex gap-2 px-2 mb-4 pl-10 md:pl-[68px] items-center"; d.innerHTML = `<span class="typing-dot w-2 h-2 bg-yellow-500 rounded-full"></span><span class="typing-dot w-2 h-2 bg-yellow-500 rounded-full" style="animation-delay:.2s"></span><span class="typing-dot w-2 h-2 bg-yellow-500 rounded-full" style="animation-delay:.4s"></span>`; document.getElementById('chat-container').appendChild(d); return id; }
+        function triggerFileUpload() { if (isGuest) { if (confirm("Login untuk upload?")) window.location.href = '/login'; return; } document.getElementById('file-upload').click(); }
+        function handlePaste(e) { if (isGuest) { const i = Array.from(e.clipboardData.items).find(x => x.type.startsWith('image')); if (i) { e.preventDefault(); if (confirm("Login untuk paste gambar?")) window.location.href = '/login'; return; } } const i = Array.from(e.clipboardData.items).find(x => x.type.startsWith('image')); if (i) { e.preventDefault(); processFile(i.getAsFile()); } }
+        function handleFileSelect(e) { processFile(e.target.files[0]); }
+        function toggleSidebar() { const s = document.getElementById('sidebar'); const o = document.getElementById('mobile-overlay'); if (window.innerWidth < 768) { s.classList.toggle('mobile-open'); s.classList.contains('mobile-open') ? o.classList.remove('hidden') : o.classList.add('hidden'); } else { s.classList.toggle('collapsed'); } }
+        function setupUI() { const d = document.getElementById('user-display'), a = document.getElementById('user-avatar'), s = document.getElementById('status-display'); if (isGuest) { d.innerText = "Sobat AI"; a.innerText = "S"; s.innerText = "Login"; } else { const n = currentUser.email.split('@')[0]; d.innerText = n.charAt(0).toUpperCase() + n.slice(1); a.innerText = n.charAt(0).toUpperCase(); s.innerText = "Keluar"; } document.querySelectorAll('.hide-on-guest').forEach(el => el.style.display = isGuest ? 'none' : ''); }
+
+        async function handleProfileClick() {
+            if (!isGuest && confirm("Keluar?")) {
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('isGuest');
+                window.location.href = '/login';
+            } else if (isGuest) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function uploadToSupabasePustaka(blob, filename) {
+            if (isGuest || !currentUser) return;
+            try {
+                const uniqueName = Date.now() + '_' + filename.replace(/[^a-zA-Z0-9.\-_]/g, '');
+                const filePath = `${currentUser.id}/${uniqueName}`;
+                const { data, error } = await supabaseClient.storage.from('pustaka').upload(filePath, blob, { cacheControl: '3600', upsert: false });
+                if (error) console.error("Error uploading to Pustaka:", error);
+            } catch (err) { console.error("Failed to save to Pustaka:", err); }
+        }
+
+        let pustakaFiles = [];
+        let currentPustakaFilter = 'Semua';
+
+        async function openPustaka() {
+            document.getElementById('pustaka-modal').style.display = 'flex';
+            document.getElementById('pustaka-content').innerHTML = '<div class="w-full text-center text-gray-500 py-10"><i class="fa-solid fa-circle-notch fa-spin text-2xl"></i><p class="mt-2">Memuat file...</p></div>';
+            await fetchPustaka();
+        }
+
+        async function fetchPustaka() {
+            if (!currentUser) return;
+            try {
+                const { data, error } = await supabaseClient.storage.from('pustaka').list(currentUser.id, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+                if (error) throw error;
+                pustakaFiles = data || [];
+                renderPustaka();
+            } catch (e) { document.getElementById('pustaka-content').innerHTML = `<p class="text-red-500 text-center">Gagal memuat pustaka.</p>`; }
+        }
+
+        function filterPustaka(type) {
+            currentPustakaFilter = type;
+            ['Semua', 'Gambar', 'File'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === type) { btn.classList.replace('text-gray-400', 'text-black'); btn.classList.add('bg-gray-200'); btn.classList.remove('hover:text-white'); }
+                else { btn.classList.replace('text-black', 'text-gray-400'); btn.classList.remove('bg-gray-200'); btn.classList.add('hover:text-white'); }
+            });
+            renderPustaka();
+        }
+
+        function renderPustaka() {
+            const container = document.getElementById('pustaka-content');
+            if (pustakaFiles.length === 0) {
+                container.innerHTML = `<div class="w-full text-center text-gray-500 py-10"><i class="fa-regular fa-folder-open text-4xl mb-3 opacity-50"></i><p>Pustaka masih kosong</p></div>`;
+                return;
+            }
+
+            let filtered = pustakaFiles;
+            if (currentPustakaFilter === 'Gambar') filtered = pustakaFiles.filter(f => f.metadata?.mimetype?.startsWith('image') || f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg'));
+            else if (currentPustakaFilter === 'File') filtered = pustakaFiles.filter(f => !(f.metadata?.mimetype?.startsWith('image') || f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.jpeg')));
+
+            let html = `<div class="w-full flex flex-col space-y-1">`;
+
+            filtered.forEach(f => {
+                const isImg = f.metadata?.mimetype?.startsWith('image') || f.name.endsWith('.png') || f.name.endsWith('.jpg');
+                const icon = isImg ? '<i class="fa-solid fa-image text-blue-400"></i>' : '<i class="fa-solid fa-file-lines text-gray-400"></i>';
+                const date = new Date(f.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'short'});
+                const size = (f.metadata?.size / 1024).toFixed(1) + ' KB';
+                const cleanName = f.name.substring(f.name.indexOf('_') + 1) || f.name;
+
+                html += `<div class="flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-[#2A2A2E] hover:bg-[#1A1A1C] transition group">
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-[#252528] flex items-center justify-center shrink-0 shadow-sm">${icon}</div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-sm text-gray-200 font-medium truncate" title="${cleanName}">${cleanName}</span>
+                            <span class="text-[11px] text-gray-500 mt-0.5 truncate">${date} &bull; ${size}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 ml-3">
+                        <button onclick="downloadPustakaFile('${f.name}')" class="text-gray-500 hover:text-white w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[#2A2A2E] transition"><i class="fa-solid fa-download"></i></button>
+                        <button onclick="deletePustakaFile('${f.name}')" class="text-gray-500 hover:text-red-500 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-500/10 transition"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        async function downloadPustakaFile(filename) {
+            if (!currentUser) return;
+            const { data, error } = await supabaseClient.storage.from('pustaka').download(`${currentUser.id}/${filename}`);
+            if (error) { alert("Gagal mengunduh file."); return; }
+            const url = window.URL.createObjectURL(data);
+            const a = document.createElement('a');
+            const cleanName = filename.substring(filename.indexOf('_') + 1) || filename;
+            a.href = url; a.download = cleanName; a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        async function deletePustakaFile(filename) {
+            if (!confirm("Hapus file ini permanen?")) return;
+            if (!currentUser) return;
+            const { error } = await supabaseClient.storage.from('pustaka').remove([`${currentUser.id}/${filename}`]);
+            if (!error) {
+                pustakaFiles = pustakaFiles.filter(f => f.name !== filename);
+                renderPustaka();
+            } else { alert("Gagal menghapus."); }
+        }
+
+        window.startNewChat = function (r = true) {
+            if (r) { currentSessionId = crypto.randomUUID(); chatHistoryLocal = []; }
+            let g = "Halo";
+            if (!isGuest && currentUser) { const n = currentUser.email.split('@')[0]; g = `Halo <span class="text-yellow-500">${n.charAt(0).toUpperCase() + n.slice(1)}</span>`; }
+            document.getElementById('chat-container').innerHTML = `<div id="empty-state" class="flex flex-col items-center justify-center h-full fade-in space-y-4 md:space-y-6 mt-[-40px] px-6 text-center"><div class="w-14 h-14 md:w-16 md:h-16 bg-[#1A1A1C] rounded-2xl flex items-center justify-center shadow-lg mb-1 border border-[#2A2A2E]"><i class="fa-solid fa-robot text-2xl md:text-3xl text-yellow-500"></i></div><h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">${g}</h1><p class="text-gray-500 text-sm max-w-xs">Ada yang bisa saya bantu hari ini?</p></div>`;
+            if (window.innerWidth < 768) { document.getElementById('sidebar').classList.remove('mobile-open'); document.getElementById('mobile-overlay').classList.add('hidden'); }
+            document.getElementById('header-title').innerHTML = `KangAjie <span class="text-yellow-500">AI</span>`;
+            toggleSendButton(true); abortController = null;
+        }
+    </script>
+    <script src="./asset/main.js"></script>
+</body>
+
+</html>
