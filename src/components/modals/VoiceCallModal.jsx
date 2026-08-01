@@ -1,0 +1,532 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { sendChat } from '../../services/chatApi';
+
+const cleanTextForSpeech = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/```[\s\S]*?```/g, ' Kode program disembunyikan. ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]+)\]\(.*?\)/g, '$1')
+    .replace(/[#*~_`>|-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+export default function VoiceCallModal({
+  isOpen,
+  onClose,
+}) {
+  // callState: 'idle' | 'listening' | 'thinking' | 'ai_speaking' | 'muted'
+  const [callState, setCallState] = useState('listening');
+  const [userTranscript, setUserTranscript] = useState('');
+  const [isMuted, setIsMuted] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  // Daftar riwayat obrolan lisan secara live di dalam kolom modal (TIDAK DISIMPAN ke chat utama)
+  const [liveTranscript, setLiveTranscript] = useState([
+    {
+      id: 'init',
+      sender: 'ai',
+      text: 'Halo! Saya KangAjie AI. Silakan bicara langsung, saya merespons dengan suara alami tanpa menyimpan ke riwayat chat utama...',
+    },
+  ]);
+
+  const recognitionRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const isModalOpenRef = useRef(isOpen);
+  const isMutedRef = useRef(isMuted);
+  const callStateRef = useRef('listening');
+  const voiceHistoryRef = useRef([]); // Riwayat sementara khusus telepon untuk konteks AI
+  const currentUtteranceRef = useRef(null); // Mencegah bug Chrome garbage collection speech
+  const transcriptEndRef = useRef(null);
+
+  isModalOpenRef.current = isOpen;
+  isMutedRef.current = isMuted;
+
+  const updateState = (newState) => {
+    callStateRef.current = newState;
+    setCallState(newState);
+  };
+
+  // Timer panggilan (detik)
+  useEffect(() => {
+    if (!isOpen) return;
+    setCallDuration(0);
+    const interval = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  // Auto-scroll kolom transcript ke bawah
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [liveTranscript, userTranscript]);
+
+  const formatDuration = (secs) => {
+    const m = Math.floor(secs / 60)
+      .toString()
+      .padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // ─── Berbicara suara AI (Text to Speech) ───────────────────────────────────
+  const speakAI = useCallback((text, onFinish) => {
+    if (!('speechSynthesis' in window) || !isModalOpenRef.current) {
+      if (onFinish) onFinish();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const clean = cleanTextForSpeech(text);
+    if (!clean) {
+      if (onFinish) onFinish();
+      return;
+    }
+
+    updateState('ai_speaking');
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = 'id-ID';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    currentUtteranceRef.current = utterance;
+
+    const voices = window.speechSynthesis.getVoices();
+    const indonesianVoice =
+      voices.find(
+        (v) =>
+          v.lang.includes('id') &&
+          (v.name.includes('Google') ||
+            v.name.includes('Natural') ||
+            v.name.includes('Microsoft') ||
+            v.name.includes('Gadis') ||
+            v.name.includes('Andika'))
+      ) ||
+      voices.find((v) => v.lang.includes('id-ID') || v.lang.includes('id_ID') || v.lang.includes('id')) ||
+      voices.find((v) => v.name.toLowerCase().includes('indonesia'));
+
+    if (indonesianVoice) {
+      utterance.voice = indonesianVoice;
+    }
+
+    utterance.onend = () => {
+      currentUtteranceRef.current = null;
+      if (isModalOpenRef.current && onFinish) {
+        onFinish();
+      }
+    };
+
+    utterance.onerror = () => {
+      currentUtteranceRef.current = null;
+      if (isModalOpenRef.current && onFinish) {
+        onFinish();
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  // ─── Mulai mendengarkan suara user (Web Speech API) ────────────────────────
+  const startListening = useCallback(() => {
+    if (!isModalOpenRef.current || isMutedRef.current || callStateRef.current === 'ai_speaking' || callStateRef.current === 'thinking') {
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Maaf, browser Anda tidak mendukung pengenalan suara.');
+      return;
+    }
+
+    try {
+      recognitionRef.current?.abort();
+    } catch {}
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'id-ID';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current !== 'ai_speaking' && callStateRef.current !== 'thinking') {
+        updateState('listening');
+        setUserTranscript('');
+      }
+    };
+
+    recognition.onresult = (event) => {
+      let currentText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        currentText += event.results[i][0].transcript;
+      }
+      const trimmed = currentText.trim();
+      if (!trimmed) return;
+
+      setUserTranscript(trimmed);
+
+      // Setelah user hening 1.8 detik, langsung proses ucapan ke AI tanpa disimpan ke chat utama!
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        if (isModalOpenRef.current && trimmed.length > 0) {
+          try {
+            recognition.stop();
+          } catch {}
+          handleVoiceTurn(trimmed);
+        }
+      }, 1800);
+    };
+
+    recognition.onerror = () => {
+      setTimeout(() => {
+        if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
+          startListening();
+        }
+      }, 400);
+    };
+
+    recognition.onend = () => {
+      if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
+        setTimeout(() => startListening(), 350);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {}
+  }, []);
+
+  // ─── Kirim ucapan ke backend & langsung jawab dengan suara (TIDAK DISIMPAN) ───
+  const handleVoiceTurn = async (userText) => {
+    if (!userText || !isModalOpenRef.current) return;
+    updateState('thinking');
+    setUserTranscript('');
+
+    // Tambahkan percakapan user ke kolom transcript
+    setLiveTranscript((prev) => [
+      ...prev,
+      { id: Date.now() + '-user', sender: 'user', text: userText },
+    ]);
+
+    try {
+      // Jika baru pertama kali bicara di sesi telepon ini, berikan instruksi kepribadian khusus telepon layaknya manusia
+      let currentHistory = [...voiceHistoryRef.current];
+      if (currentHistory.length === 0) {
+        currentHistory = [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: '[INSTRUKSI KHUSUS MODE TELEPON / VOICE CALL]: Kita sedang mengobrol via telepon langsung. Jawablah dengan gaya bicara yang SANGAT ALAMI, luwes, ramah, komunikatif, dan mendalam layaknya manusia yang sedang berbincang akrab di telepon. Jangan terlalu singkat atau kaku, jelaskan dengan baik dan jelas agar nyaman didengar lisan, serta boleh ajukan pertanyaan balik yang relevan agar percakapan hidup.',
+              },
+            ],
+          },
+          {
+            role: 'model',
+            parts: [
+              {
+                text: 'Baik, saya siap mengobrol dengan ramah, hangat, jelas, dan komunikatif seperti sesama manusia yang berbincang di telepon!',
+              },
+            ],
+          },
+        ];
+      }
+
+      const res = await sendChat({
+        history: currentHistory,
+        message: userText,
+        userName: 'Teman',
+      });
+
+      if (!isModalOpenRef.current) return;
+
+      const replyText = res?.reply || 'Maaf, saya tidak mendengarnya dengan jelas.';
+
+      // Simpan di memori sementara sesi telepon saja (TIDAK DISIMPAN KE DATABASE / SUPABASE)
+      voiceHistoryRef.current = [
+        ...currentHistory,
+        { role: 'user', parts: [{ text: userText }] },
+        { role: 'model', parts: [{ text: replyText }] },
+      ];
+
+      // Tambahkan balasan AI ke kolom transcript
+      setLiveTranscript((prev) => [
+        ...prev,
+        { id: Date.now() + '-ai', sender: 'ai', text: replyText },
+      ]);
+
+      // LANGSUNG JAWAB DALAM BENTUK SUARA SECARA OTOMATIS!
+      speakAI(replyText, () => {
+        if (isModalOpenRef.current && !isMutedRef.current) {
+          updateState('listening');
+          setTimeout(() => startListening(), 250);
+        }
+      });
+    } catch (err) {
+      console.error('Voice call send error:', err);
+      if (isModalOpenRef.current) {
+        const errorMsg = 'Maaf, jalur AI sedang padat sesaat. Silakan coba katakan kembali ya.';
+        setLiveTranscript((prev) => [
+          ...prev,
+          { id: Date.now() + '-ai-err', sender: 'ai', text: errorMsg },
+        ]);
+        speakAI(errorMsg, () => {
+          if (isModalOpenRef.current && !isMutedRef.current) {
+            updateState('listening');
+            setTimeout(() => startListening(), 250);
+          }
+        });
+      }
+    }
+  };
+
+  // ─── Efek buka & tutup modal ───────────────────────────────────────────────
+  useEffect(() => {
+    if (isOpen) {
+      voiceHistoryRef.current = []; // Reset sesi telepon, mulai bersih
+      setLiveTranscript([
+        {
+          id: 'init',
+          sender: 'ai',
+          text: 'Halo! Saya KangAjie AI. Silakan bicara langsung, saya merespons dengan suara alami tanpa menyimpan ke riwayat chat utama...',
+        },
+      ]);
+      updateState('listening');
+      setUserTranscript('');
+      setIsMuted(false);
+      startListening();
+    } else {
+      voiceHistoryRef.current = []; // Hapus riwayat telepon
+      window.speechSynthesis.cancel();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+    }
+    return () => {
+      window.speechSynthesis.cancel();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+    };
+  }, [isOpen]);
+
+  const toggleMute = () => {
+    if (isMuted) {
+      setIsMuted(false);
+      isMutedRef.current = false;
+      updateState('listening');
+      startListening();
+    } else {
+      setIsMuted(true);
+      isMutedRef.current = true;
+      updateState('muted');
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      try {
+        recognitionRef.current?.stop();
+      } catch {}
+    }
+  };
+
+  const handleInterrupt = () => {
+    window.speechSynthesis.cancel();
+    currentUtteranceRef.current = null;
+    updateState('listening');
+    setUserTranscript('');
+    startListening();
+  };
+
+  const handleManualStart = () => {
+    if (callState === 'ai_speaking') {
+      handleInterrupt();
+    } else if (callState !== 'thinking') {
+      updateState('listening');
+      setUserTranscript('');
+      startListening();
+    }
+  };
+
+  const handleEndCall = () => {
+    voiceHistoryRef.current = [];
+    window.speechSynthesis.cancel();
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-[#0F0F10]/95 backdrop-blur-2xl flex flex-col justify-between p-4 sm:p-8 text-white animate-fade-in select-none overflow-hidden">
+      {/* Background Decorative Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-yellow-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Top Header */}
+      <div className="flex items-center justify-between z-10 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 bg-[#1A1A1C] border border-[#2A2A2E] px-3.5 py-1.5 rounded-full shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+            <span className="text-xs font-semibold tracking-wide text-gray-200">
+              TELEPON KANGAJIE AI (NO-SAVE MODE)
+            </span>
+          </div>
+          <span className="text-xs font-mono text-gray-400 bg-[#1A1A1C] px-3 py-1.5 rounded-full border border-[#2A2A2E]">
+            {formatDuration(callDuration)}
+          </span>
+        </div>
+
+        <button
+          onClick={handleEndCall}
+          className="w-10 h-10 rounded-full bg-[#1A1A1C] hover:bg-[#25252A] border border-[#2A2A2E] flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer"
+          title="Tutup layar telepon"
+        >
+          <i className="fa-solid fa-xmark text-lg" />
+        </button>
+      </div>
+
+      {/* Center Animated Visualizer & Orb */}
+      <div className="flex-1 flex flex-col items-center justify-center text-center z-10 max-w-xl mx-auto px-4 my-2 shrink-0">
+        {/* Animated Visual Orb (Klik untuk bicara/potong) */}
+        <div
+          onClick={handleManualStart}
+          className="relative mb-6 flex items-center justify-center cursor-pointer group"
+          title="Klik lingkaran untuk bicara atau potong suara AI"
+        >
+          {/* Glowing Aura Rings */}
+          <div
+            className={`absolute -inset-6 rounded-full transition-all duration-700 ${
+              callState === 'ai_speaking'
+                ? 'bg-yellow-500/25 blur-2xl animate-pulse scale-125'
+                : callState === 'listening'
+                ? 'bg-emerald-500/25 blur-2xl animate-pulse scale-110'
+                : callState === 'thinking'
+                ? 'bg-purple-500/25 blur-2xl animate-spin scale-110'
+                : 'bg-gray-500/10 blur-xl'
+            }`}
+          />
+
+          {/* Central Orb */}
+          <div
+            className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full border-2 flex items-center justify-center relative transition-all duration-500 shadow-2xl ${
+              callState === 'ai_speaking'
+                ? 'bg-gradient-to-tr from-amber-500 to-yellow-400 border-yellow-300 scale-105 shadow-yellow-500/50'
+                : callState === 'listening'
+                ? 'bg-gradient-to-tr from-emerald-600 to-green-400 border-emerald-300 scale-100 shadow-emerald-500/40 group-hover:scale-105'
+                : callState === 'thinking'
+                ? 'bg-gradient-to-tr from-purple-600 to-indigo-500 border-purple-300 animate-pulse scale-95 shadow-purple-500/40'
+                : 'bg-[#1C1C20] border-gray-600 scale-90'
+            }`}
+          >
+            {/* Center Icon */}
+            {callState === 'ai_speaking' && (
+              <i className="fa-solid fa-waveform-lines text-4xl sm:text-5xl text-black animate-bounce" />
+            )}
+            {callState === 'listening' && (
+              <i className="fa-solid fa-microphone text-4xl sm:text-5xl text-black animate-pulse" />
+            )}
+            {callState === 'thinking' && (
+              <i className="fa-solid fa-brain text-4xl sm:text-5xl text-white animate-spin" />
+            )}
+            {callState === 'muted' && (
+              <i className="fa-solid fa-microphone-slash text-4xl text-gray-400" />
+            )}
+          </div>
+        </div>
+
+        {/* State Status Text */}
+        <h2 className="text-lg sm:text-xl font-bold tracking-tight mb-2">
+          {callState === 'ai_speaking' && 'KangAjie AI Sedang Berbicara... (Klik orb untuk potong)'}
+          {callState === 'listening' && 'Mendengarkan Anda... (Silakan bicara natural)'}
+          {callState === 'thinking' && 'KangAjie AI Sedang Berpikir...'}
+          {callState === 'muted' && 'Mikrofon Bisu (Muted)'}
+        </h2>
+      </div>
+
+      {/* Live Conversation Transcript Column (Semua Obrolan Telepon Ter-translate di Sini!) */}
+      <div className="max-w-2xl w-full mx-auto bg-[#18181B]/85 border border-[#2A2A2E] rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur max-h-56 sm:max-h-64 overflow-y-auto space-y-3.5 z-10 my-2 scroll-smooth">
+        {liveTranscript.map((item) => (
+          <div
+            key={item.id}
+            className={`flex flex-col ${
+              item.sender === 'user' ? 'items-end' : 'items-start'
+            } animate-fade-in`}
+          >
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider mb-1 px-2 py-0.5 rounded-md ${
+                item.sender === 'user'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+              }`}
+            >
+              {item.sender === 'user' ? 'Anda' : 'KangAjie AI'}
+            </span>
+            <p
+              className={`text-sm sm:text-[15px] leading-relaxed rounded-xl px-3.5 py-2.5 max-w-[90%] ${
+                item.sender === 'user'
+                  ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-800/40'
+                  : 'bg-[#222226] text-gray-200 border border-[#323238]'
+              }`}
+            >
+              {item.text}
+            </p>
+          </div>
+        ))}
+
+        {/* Live speech in progress indicator */}
+        {callState === 'listening' && userTranscript && (
+          <div className="flex flex-col items-end animate-fade-in">
+            <span className="text-[10px] font-bold uppercase tracking-wider mb-1 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              Anda (Sedang bicara...)
+            </span>
+            <p className="text-sm sm:text-[15px] leading-relaxed rounded-xl px-3.5 py-2.5 bg-emerald-950/40 text-emerald-300/80 border border-emerald-800/40 italic">
+              "{userTranscript}"
+            </p>
+          </div>
+        )}
+
+        <div ref={transcriptEndRef} />
+      </div>
+
+      {/* Bottom Controls Bar */}
+      <div className="flex items-center justify-center gap-6 z-10 pt-2 pb-4 shrink-0">
+        {/* Mute Button */}
+        <button
+          onClick={toggleMute}
+          className={`w-14 h-14 rounded-full flex items-center justify-center text-lg transition cursor-pointer border shadow-lg ${
+            isMuted
+              ? 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30'
+              : 'bg-[#1E1E22] hover:bg-[#2A2A30] text-gray-300 border-[#303036] hover:text-white'
+          }`}
+          title={isMuted ? 'Nyalakan Mikrofon' : 'Bisukan Mikrofon'}
+        >
+          <i className={`fa-solid ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'}`} />
+        </button>
+
+        {/* Manual Listen / Potong Suara button */}
+        <button
+          onClick={handleManualStart}
+          className="w-14 h-14 rounded-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 flex items-center justify-center text-lg transition cursor-pointer shadow-lg"
+          title="Mulai bicara manual / Potong Suara AI"
+        >
+          <i className="fa-solid fa-rotate-right" />
+        </button>
+
+        {/* Big Red Hang Up Button */}
+        <button
+          onClick={handleEndCall}
+          className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-2xl shadow-xl shadow-red-600/40 hover:scale-105 transition cursor-pointer"
+          title="Akhiri Panggilan (End Call)"
+        >
+          <i className="fa-solid fa-phone-slash" />
+        </button>
+      </div>
+    </div>
+  );
+}
