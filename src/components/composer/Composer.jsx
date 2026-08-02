@@ -201,19 +201,6 @@ export default function Composer({ value, onChange, onSubmit, isSending, onStop,
             className="flex-1 bg-transparent border-none text-white focus:ring-0 py-3 px-2 outline-none resize-none max-h-40 text-[15px] placeholder-gray-600 disabled:opacity-60"
           />
 
-          {/* Telepon AI (Live Call Modal) Button */}
-          {onOpenVoiceCall && (
-            <button
-              type="button"
-              onClick={onOpenVoiceCall}
-              disabled={isSending}
-              className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition cursor-pointer text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-40"
-              title="Mulai Mode Telepon (Live Voice Call AI)"
-            >
-              <i className="fa-solid fa-phone-volume text-base" />
-            </button>
-          )}
-
           {/* Voice to Text Microphone Button */}
           <button
             type="button"
@@ -233,27 +220,48 @@ export default function Composer({ value, onChange, onSubmit, isSending, onStop,
             <i className={`fa-solid ${isListening ? 'fa-microphone-lines' : 'fa-microphone'} text-base`} />
           </button>
 
-          {/* Send / Stop button */}
-          {!isSending ? (
-            <button
-              type="submit"
-              id="send-btn"
-              disabled={!value.trim() && !currentFile}
-              className="text-black bg-white hover:bg-yellow-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title="Kirim pesan"
-            >
-              <i className="fa-solid fa-arrow-up text-sm font-bold" />
-            </button>
+          {/* Action Button (Telepon AI or Send/Stop) */}
+          {(!value.trim() && !currentFile && !isSending) ? (
+            // Telepon AI (Live Call Modal) Button
+            onOpenVoiceCall && (
+              <button
+                type="button"
+                onClick={onOpenVoiceCall}
+                disabled={isSending}
+                className="text-black bg-white hover:bg-yellow-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg cursor-pointer"
+                title="Mulai Mode Telepon (Live Voice Call AI)"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v18"></path>
+                  <path d="M17 7v10"></path>
+                  <path d="M22 10v4"></path>
+                  <path d="M7 7v10"></path>
+                  <path d="M2 10v4"></path>
+                </svg>
+              </button>
+            )
           ) : (
-            <button
-              type="button"
-              id="stop-btn"
-              onClick={onStop}
-              className="text-white bg-red-500 hover:bg-red-600 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg animate-pulse cursor-pointer"
-              title="Hentikan"
-            >
-              <i className="fa-solid fa-square text-sm" />
-            </button>
+            // Send / Stop button
+            !isSending ? (
+              <button
+                type="submit"
+                id="send-btn"
+                className="text-black bg-white hover:bg-yellow-500 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg cursor-pointer"
+                title="Kirim pesan"
+              >
+                <i className="fa-solid fa-arrow-up text-sm font-bold" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                id="stop-btn"
+                onClick={onStop}
+                className="text-white bg-red-500 hover:bg-red-600 w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition shadow-lg animate-pulse cursor-pointer"
+                title="Hentikan"
+              >
+                <i className="fa-solid fa-square text-sm" />
+              </button>
+            )
           )}
         </form>
 

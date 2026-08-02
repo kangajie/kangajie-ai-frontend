@@ -53,7 +53,7 @@ export default function LoginPage() {
           return;
         }
         showMsg('Berhasil masuk! Mengalihkan...', 'success');
-        localStorage.removeItem('isGuest');
+        try { localStorage.removeItem('isGuest'); } catch { }
         setTimeout(() => navigate('/'), 800);
 
       } else if (mode === 'register') {
@@ -79,7 +79,7 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    localStorage.removeItem('isGuest');
+    try { localStorage.removeItem('isGuest'); } catch { }
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

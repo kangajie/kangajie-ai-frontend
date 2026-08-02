@@ -1,138 +1,105 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
+// ─── Safe localStorage helper ──────────────────────────────────────────────
+const safeStorage = {
+  get:    (k)    => { try { return localStorage.getItem(k);    } catch { return null; } },
+  set:    (k, v) => { try { localStorage.setItem(k, v);        } catch { /* ignored */ } },
+  remove: (k)    => { try { localStorage.removeItem(k);        } catch { /* ignored */ } },
+};
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [isGuest, setIsGuest] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser]                               = useState(null);
+  const [isGuest, setIsGuest]                         = useState(false);
+  const [isLoading, setIsLoading]                     = useState(true);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
-
-  // Navigation callback — set by App or ChatPage via useEffect
   const navigateRef = useRef(null);
 
-  const setNavigate = useCallback((navigateFn) => {
-    navigateRef.current = navigateFn;
-  }, []);
+  const setNavigate = useCallback((fn) => { navigateRef.current = fn; }, []);
 
-  // Initialize auth state
   useEffect(() => {
     let cleanup = null;
 
-    const initializeAuth = async () => {
+    const init = async () => {
       try {
-        // Check localStorage for guest mode
-        const storedGuest = localStorage.getItem('isGuest') === 'true';
-        setIsGuest(storedGuest);
+        setIsGuest(safeStorage.get('isGuest') === 'true');
 
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        // Timeout 5 detik: jika Supabase hang (terjadi di Instagram karena storage diblokir),
+        // langsung lanjutkan render tanpa session daripada stuck black screen selamanya.
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((res) => setTimeout(() => res({ data: { session: null } }), 5000)),
+        ]);
 
+        const session = result?.data?.session;
         if (session) {
           setUser(session.user);
           setIsGuest(false);
-          localStorage.removeItem('isGuest');
+          safeStorage.remove('isGuest');
         }
 
-        // Set up auth state listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-            if (event === 'PASSWORD_RECOVERY') {
-              setShowResetPasswordModal(true);
-            }
-            setUser(session?.user || null);
-            if (session) {
-              setIsGuest(false);
-              localStorage.removeItem('isGuest');
-            }
-          }
-        );
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'PASSWORD_RECOVERY') setShowResetPasswordModal(true);
+          setUser(session?.user || null);
+          if (session) { setIsGuest(false); safeStorage.remove('isGuest'); }
+        });
 
         cleanup = () => subscription.unsubscribe();
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+      } catch (err) {
+        console.error('Auth init error:', err);
       } finally {
+        // WAJIB: selalu selesaikan loading agar app tidak blank selamanya
         setIsLoading(false);
       }
     };
 
-    initializeAuth();
-
-    return () => {
-      if (cleanup) cleanup();
-    };
+    init();
+    return () => { if (cleanup) cleanup(); };
   }, []);
 
-  // Sign out
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    try { await supabase.auth.signOut(); } catch { /* ignore */ }
     setUser(null);
     setIsGuest(false);
-    localStorage.removeItem('isGuest');
-    // Navigate to login using React Router if available, else fallback
-    if (navigateRef.current) {
-      navigateRef.current('/login');
-    } else {
-      window.location.href = '/login';
-    }
+    safeStorage.remove('isGuest');
+    if (navigateRef.current) navigateRef.current('/login');
+    else window.location.href = '/login';
   }, []);
 
-  // Set guest mode
   const setGuestMode = useCallback((guest) => {
     setIsGuest(guest);
-    if (guest) {
-      localStorage.setItem('isGuest', 'true');
-    } else {
-      localStorage.removeItem('isGuest');
-    }
+    if (guest) safeStorage.set('isGuest', 'true');
+    else safeStorage.remove('isGuest');
   }, []);
 
-  // Require auth helper - returns true if user is authenticated
-  const requireAuth = useCallback(() => {
-    return !!user && !isGuest;
-  }, [user, isGuest]);
+  const requireAuth = useCallback(() => !!user && !isGuest, [user, isGuest]);
 
-  // ✅ FIX: Guest guard — uses React Router navigate if available, fallback to location.href
-  const requireAuthOrRedirect = useCallback((message = 'Harap Login terlebih dahulu untuk menggunakan fitur ini. Login sekarang?') => {
+  const requireAuthOrRedirect = useCallback((msg = 'Harap Login terlebih dahulu. Login sekarang?') => {
     if (isGuest || !user) {
-      if (window.confirm(message)) {
-        if (navigateRef.current) {
-          navigateRef.current('/login');
-        } else {
-          window.location.href = '/login';
-        }
+      if (window.confirm(msg)) {
+        if (navigateRef.current) navigateRef.current('/login');
+        else window.location.href = '/login';
       }
       return false;
     }
     return true;
   }, [user, isGuest]);
 
-  const value = {
-    supabase,
-    user,
-    isGuest,
-    isLoading,
-    showResetPasswordModal,
-    setShowResetPasswordModal,
-    signOut,
-    setGuestMode,
-    requireAuth,
-    requireAuthOrRedirect,
-    setNavigate,
-  };
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      supabase, user, isGuest, isLoading,
+      showResetPasswordModal, setShowResetPasswordModal,
+      signOut, setGuestMode, requireAuth, requireAuthOrRedirect, setNavigate,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 }

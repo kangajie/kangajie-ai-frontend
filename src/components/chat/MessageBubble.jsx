@@ -48,12 +48,12 @@ export default function MessageBubble({ message, isUser, onEdit, onFillInput }) 
     }
 
     if (isSpeaking) {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis?.cancel();
       setIsSpeaking(false);
       return;
     }
 
-    window.speechSynthesis.cancel();
+    window.speechSynthesis?.cancel();
 
     const cleanText = cleanTextForSpeech(message.text);
     if (!cleanText) return;
@@ -98,7 +98,7 @@ export default function MessageBubble({ message, isUser, onEdit, onFillInput }) 
   useEffect(() => {
     return () => {
       if (isSpeaking) {
-        window.speechSynthesis.cancel();
+        window.speechSynthesis?.cancel();
       }
     };
   }, [isSpeaking]);

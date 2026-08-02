@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import legacy from '@vitejs/plugin-legacy';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,14 +22,27 @@ function spaFallbackPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), spaFallbackPlugin()],
+  plugins: [
+    react(),
+    // Konfigurasi Legacy EKSTREM agar berjalan di Webview (Instagram/TikTok/dsb)
+    legacy({
+      targets: ['defaults', 'not IE 11', 'chrome >= 49', 'safari >= 10', 'ios >= 10', 'android >= 5'],
+      additionalLegacyPolyfills: ['regenerator-runtime/runtime'],
+      renderLegacyChunks: true,
+      polyfills: true,
+    }),
+    spaFallbackPlugin(),
+  ],
   css: {
     postcss: './postcss.config.js',
+  },
+  build: {
+    target: 'es2015', // Paksa build engine menargetkan ES2015 (bisa jalan hampir di mana saja)
+    cssTarget: 'chrome61',
   },
   server: {
     port: 5173,
     proxy: {
-      // Forward semua /api/* ke backend Next.js lokal
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,

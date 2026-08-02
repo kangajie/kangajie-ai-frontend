@@ -22,6 +22,7 @@ export default function VoiceCallModal({
   const [userTranscript, setUserTranscript] = useState('');
   const [isMuted, setIsMuted] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [showLog, setShowLog] = useState(false); // State untuk menampilkan/menyembunyikan teks log
 
   // Daftar riwayat obrolan lisan secara live di dalam kolom modal (TIDAK DISIMPAN ke chat utama)
   const [liveTranscript, setLiveTranscript] = useState([
@@ -40,6 +41,7 @@ export default function VoiceCallModal({
   const voiceHistoryRef = useRef([]); // Riwayat sementara khusus telepon untuk konteks AI
   const currentUtteranceRef = useRef(null); // Mencegah bug Chrome garbage collection speech
   const transcriptEndRef = useRef(null);
+  const currentTurnRef = useRef(0); // Menandai giliran request agar bisa dibatalkan jika disela
 
   isModalOpenRef.current = isOpen;
   isMutedRef.current = isMuted;
@@ -79,7 +81,12 @@ export default function VoiceCallModal({
       return;
     }
 
-    window.speechSynthesis.cancel();
+    // Segera matikan mic jika AI mau bicara (mencegah bug mic mendengar AI)
+    try {
+      recognitionRef.current?.abort();
+    } catch { }
+
+    window.speechSynthesis?.cancel();
     const clean = cleanTextForSpeech(text);
     if (!clean) {
       if (onFinish) onFinish();
@@ -113,20 +120,27 @@ export default function VoiceCallModal({
     }
 
     utterance.onend = () => {
-      currentUtteranceRef.current = null;
-      if (isModalOpenRef.current && onFinish) {
-        onFinish();
+      // Pastikan onend berasal dari utterance aktif (mencegah bug onend palsu akibat cancel)
+      if (currentUtteranceRef.current === utterance) {
+        currentUtteranceRef.current = null;
+        if (isModalOpenRef.current && onFinish) {
+          onFinish();
+        }
       }
     };
 
     utterance.onerror = () => {
-      currentUtteranceRef.current = null;
-      if (isModalOpenRef.current && onFinish) {
-        onFinish();
+      if (currentUtteranceRef.current === utterance) {
+        currentUtteranceRef.current = null;
+        if (isModalOpenRef.current && onFinish) {
+          onFinish();
+        }
       }
     };
 
-    window.speechSynthesis.speak(utterance);
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+    }, 50);
   }, []);
 
   // ─── Mulai mendengarkan suara user (Web Speech API) ────────────────────────
@@ -143,7 +157,7 @@ export default function VoiceCallModal({
 
     try {
       recognitionRef.current?.abort();
-    } catch {}
+    } catch { }
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'id-ID';
@@ -173,35 +187,42 @@ export default function VoiceCallModal({
         if (isModalOpenRef.current && trimmed.length > 0) {
           try {
             recognition.stop();
-          } catch {}
+          } catch { }
           handleVoiceTurn(trimmed);
         }
       }, 1800);
     };
 
     recognition.onerror = () => {
-      setTimeout(() => {
-        if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
-          startListening();
-        }
-      }, 400);
+      if (recognitionRef.current === recognition) {
+        setTimeout(() => {
+          if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
+            startListening();
+          }
+        }, 400);
+      }
     };
 
     recognition.onend = () => {
-      if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
-        setTimeout(() => startListening(), 350);
+      if (recognitionRef.current === recognition) {
+        if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
+          setTimeout(() => startListening(), 350);
+        }
       }
     };
 
     recognitionRef.current = recognition;
     try {
       recognition.start();
-    } catch {}
+    } catch { }
   }, []);
 
   // ─── Kirim ucapan ke backend & langsung jawab dengan suara (TIDAK DISIMPAN) ───
   const handleVoiceTurn = async (userText) => {
     if (!userText || !isModalOpenRef.current) return;
+    
+    const turnId = Date.now();
+    currentTurnRef.current = turnId;
     updateState('thinking');
     setUserTranscript('');
 
@@ -241,7 +262,8 @@ export default function VoiceCallModal({
         userName: 'Teman',
       });
 
-      if (!isModalOpenRef.current) return;
+      // Jika turnId sudah berubah (karena user menekan interupsi saat AI sedang mikir), maka buang balasan ini!
+      if (currentTurnRef.current !== turnId || !isModalOpenRef.current) return;
 
       const replyText = res?.reply || 'Maaf, saya tidak mendengarnya dengan jelas.';
 
@@ -300,18 +322,18 @@ export default function VoiceCallModal({
       startListening();
     } else {
       voiceHistoryRef.current = []; // Hapus riwayat telepon
-      window.speechSynthesis.cancel();
+      window.speechSynthesis?.cancel();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       try {
         recognitionRef.current?.stop();
-      } catch {}
+      } catch { }
     }
     return () => {
-      window.speechSynthesis.cancel();
+      window.speechSynthesis?.cancel();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       try {
         recognitionRef.current?.stop();
-      } catch {}
+      } catch { }
     };
   }, [isOpen]);
 
@@ -328,35 +350,45 @@ export default function VoiceCallModal({
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       try {
         recognitionRef.current?.stop();
-      } catch {}
+      } catch { }
     }
   };
 
   const handleInterrupt = () => {
-    window.speechSynthesis.cancel();
+    currentTurnRef.current = Date.now(); // Batalkan antrean respons backend jika ada
+    
+    window.speechSynthesis?.cancel();
     currentUtteranceRef.current = null;
+    
+    // Hapus referensi agar event onend lama tidak memicu restart ganda
+    const oldRec = recognitionRef.current;
+    recognitionRef.current = null;
+    try {
+      oldRec?.abort();
+    } catch { }
+
     updateState('listening');
     setUserTranscript('');
-    startListening();
+    
+    setTimeout(() => {
+      if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
+        startListening();
+      }
+    }, 150);
   };
 
   const handleManualStart = () => {
-    if (callState === 'ai_speaking') {
-      handleInterrupt();
-    } else if (callState !== 'thinking') {
-      updateState('listening');
-      setUserTranscript('');
-      startListening();
-    }
+    // Selalu paksa hentikan suara AI apapun statusnya agar pasti reset ke listening
+    handleInterrupt();
   };
 
   const handleEndCall = () => {
     voiceHistoryRef.current = [];
-    window.speechSynthesis.cancel();
+    window.speechSynthesis?.cancel();
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     try {
       recognitionRef.current?.stop();
-    } catch {}
+    } catch { }
     onClose();
   };
 
@@ -370,21 +402,24 @@ export default function VoiceCallModal({
 
       {/* Top Header */}
       <div className="flex items-center justify-between z-10 shrink-0">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 bg-[#1A1A1C] border border-[#2A2A2E] px-3.5 py-1.5 rounded-full shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-            <span className="text-xs font-semibold tracking-wide text-gray-200">
-              TELEPON KANGAJIE AI (NO-SAVE MODE)
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="text-lg sm:text-xl font-bold tracking-tight shrink-0 bg-black/30 px-3 py-1 rounded-full border border-gray-800 backdrop-blur-md">
+            KangAjie <span className="text-yellow-500">AI</span>
+          </div>
+          <div className="flex items-center gap-2 bg-[#1A1A1C]/80 border border-[#2A2A2E] px-3 py-1.5 rounded-full shadow-sm backdrop-blur-md">
+            <span className={`w-2 h-2 rounded-full ${callState === 'listening' ? 'bg-emerald-400 animate-ping' : callState === 'ai_speaking' ? 'bg-yellow-400 animate-pulse' : 'bg-gray-400'} inline-block`} />
+            <span className="text-[10px] sm:text-xs font-semibold tracking-wide text-gray-200 uppercase hidden sm:inline-block">
+              Voice Mode
             </span>
           </div>
-          <span className="text-xs font-mono text-gray-400 bg-[#1A1A1C] px-3 py-1.5 rounded-full border border-[#2A2A2E]">
+          <span className="text-xs font-mono text-gray-400 bg-[#1A1A1C]/80 px-3 py-1.5 rounded-full border border-[#2A2A2E] backdrop-blur-md">
             {formatDuration(callDuration)}
           </span>
         </div>
 
         <button
           onClick={handleEndCall}
-          className="w-10 h-10 rounded-full bg-[#1A1A1C] hover:bg-[#25252A] border border-[#2A2A2E] flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer"
+          className="w-10 h-10 rounded-full bg-[#1A1A1C]/80 hover:bg-[#25252A] border border-[#2A2A2E] flex items-center justify-center text-gray-400 hover:text-white transition cursor-pointer backdrop-blur-md"
           title="Tutup layar telepon"
         >
           <i className="fa-solid fa-xmark text-lg" />
@@ -396,83 +431,102 @@ export default function VoiceCallModal({
         {/* Animated Visual Orb (Klik untuk bicara/potong) */}
         <div
           onClick={handleManualStart}
-          className="relative mb-6 flex items-center justify-center cursor-pointer group"
+          className="relative mb-8 flex items-center justify-center cursor-pointer group"
           title="Klik lingkaran untuk bicara atau potong suara AI"
         >
           {/* Glowing Aura Rings */}
           <div
-            className={`absolute -inset-6 rounded-full transition-all duration-700 ${
+            className={`absolute inset-0 rounded-full transition-all duration-700 ${
               callState === 'ai_speaking'
-                ? 'bg-yellow-500/25 blur-2xl animate-pulse scale-125'
+                ? 'bg-yellow-500/30 blur-2xl animate-ping scale-[1.8]'
                 : callState === 'listening'
-                ? 'bg-emerald-500/25 blur-2xl animate-pulse scale-110'
-                : callState === 'thinking'
-                ? 'bg-purple-500/25 blur-2xl animate-spin scale-110'
-                : 'bg-gray-500/10 blur-xl'
+                  ? 'bg-emerald-500/30 blur-2xl animate-ping scale-[1.5]'
+                  : callState === 'thinking'
+                    ? 'bg-purple-500/30 blur-2xl animate-spin scale-125'
+                    : 'bg-gray-500/10 blur-xl scale-100'
+            }`}
+            style={{ animationDuration: callState === 'ai_speaking' ? '1.5s' : '2.5s' }}
+          />
+          {/* Second inner ring for depth */}
+          <div
+            className={`absolute -inset-4 rounded-full transition-all duration-500 ${
+              callState === 'ai_speaking'
+                ? 'bg-yellow-400/40 blur-xl animate-pulse scale-[1.3]'
+                : callState === 'listening'
+                  ? 'bg-emerald-400/40 blur-xl animate-pulse scale-[1.1]'
+                  : 'opacity-0 scale-90'
             }`}
           />
 
           {/* Central Orb */}
           <div
-            className={`w-32 h-32 sm:w-36 sm:h-36 rounded-full border-2 flex items-center justify-center relative transition-all duration-500 shadow-2xl ${
-              callState === 'ai_speaking'
-                ? 'bg-gradient-to-tr from-amber-500 to-yellow-400 border-yellow-300 scale-105 shadow-yellow-500/50'
+            className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full border-2 flex items-center justify-center relative transition-all duration-500 shadow-2xl z-10 ${
+                callState === 'ai_speaking'
+                ? 'bg-gradient-to-tr from-amber-400 to-yellow-300 border-yellow-200 scale-110 shadow-[0_0_50px_rgba(234,179,8,0.6)]'
                 : callState === 'listening'
-                ? 'bg-gradient-to-tr from-emerald-600 to-green-400 border-emerald-300 scale-100 shadow-emerald-500/40 group-hover:scale-105'
-                : callState === 'thinking'
-                ? 'bg-gradient-to-tr from-purple-600 to-indigo-500 border-purple-300 animate-pulse scale-95 shadow-purple-500/40'
-                : 'bg-[#1C1C20] border-gray-600 scale-90'
-            }`}
+                  ? 'bg-gradient-to-tr from-emerald-500 to-green-300 border-emerald-200 scale-100 shadow-[0_0_40px_rgba(16,185,129,0.5)] group-hover:scale-105'
+                  : callState === 'thinking'
+                    ? 'bg-gradient-to-tr from-purple-600 to-indigo-500 border-purple-300 scale-95 shadow-[0_0_30px_rgba(168,85,247,0.4)]'
+                    : 'bg-[#1C1C20] border-gray-600 scale-90 hover:scale-95'
+              }`}
           >
             {/* Center Icon */}
             {callState === 'ai_speaking' && (
-              <i className="fa-solid fa-waveform-lines text-4xl sm:text-5xl text-black animate-bounce" />
+              <i className="fa-solid fa-robot text-5xl sm:text-6xl text-black animate-bounce" />
             )}
             {callState === 'listening' && (
-              <i className="fa-solid fa-microphone text-4xl sm:text-5xl text-black animate-pulse" />
+              <i className="fa-solid fa-microphone text-5xl sm:text-6xl text-black" style={{ animation: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
             )}
             {callState === 'thinking' && (
-              <i className="fa-solid fa-brain text-4xl sm:text-5xl text-white animate-spin" />
+              <i className="fa-solid fa-brain text-5xl sm:text-6xl text-white animate-pulse" />
             )}
             {callState === 'muted' && (
-              <i className="fa-solid fa-microphone-slash text-4xl text-gray-400" />
+              <i className="fa-solid fa-microphone-slash text-5xl sm:text-6xl text-gray-500" />
             )}
           </div>
         </div>
 
         {/* State Status Text */}
-        <h2 className="text-lg sm:text-xl font-bold tracking-tight mb-2">
-          {callState === 'ai_speaking' && 'KangAjie AI Sedang Berbicara... (Klik orb untuk potong)'}
-          {callState === 'listening' && 'Mendengarkan Anda... (Silakan bicara natural)'}
-          {callState === 'thinking' && 'KangAjie AI Sedang Berpikir...'}
-          {callState === 'muted' && 'Mikrofon Bisu (Muted)'}
+        <h2 className={`text-xl sm:text-2xl font-bold tracking-tight mb-2 mt-4 transition-colors duration-500 ${
+          callState === 'ai_speaking' ? 'text-yellow-400' :
+          callState === 'listening' ? 'text-emerald-400' :
+          callState === 'thinking' ? 'text-purple-400' : 'text-gray-400'
+        }`}>
+          {callState === 'ai_speaking' && 'KangAjie AI Sedang Berbicara...'}
+          {callState === 'listening' && 'Mendengarkan Anda...'}
+          {callState === 'thinking' && 'Sedang Berpikir...'}
+          {callState === 'muted' && 'Mikrofon Bisu'}
         </h2>
+        <p className="text-sm text-gray-400 max-w-sm">
+          {callState === 'ai_speaking' && 'Klik lingkaran untuk menyela atau bicara manual.'}
+          {callState === 'listening' && 'Silakan bicara senatural mungkin, saya merespons.'}
+          {callState === 'thinking' && 'Memproses ucapan Anda...'}
+          {callState === 'muted' && 'Klik ikon mikrofon di bawah untuk mulai bicara.'}
+        </p>
       </div>
 
       {/* Live Conversation Transcript Column (Semua Obrolan Telepon Ter-translate di Sini!) */}
-      <div className="max-w-2xl w-full mx-auto bg-[#18181B]/85 border border-[#2A2A2E] rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur max-h-56 sm:max-h-64 overflow-y-auto space-y-3.5 z-10 my-2 scroll-smooth">
+      {showLog && (
+        <div className="max-w-2xl w-full mx-auto bg-[#18181B]/85 border border-[#2A2A2E] rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur max-h-56 sm:max-h-64 overflow-y-auto space-y-3.5 z-10 my-2 scroll-smooth">
         {liveTranscript.map((item) => (
           <div
             key={item.id}
-            className={`flex flex-col ${
-              item.sender === 'user' ? 'items-end' : 'items-start'
-            } animate-fade-in`}
+            className={`flex flex-col ${item.sender === 'user' ? 'items-end' : 'items-start'
+              } animate-fade-in`}
           >
             <span
-              className={`text-[10px] font-bold uppercase tracking-wider mb-1 px-2 py-0.5 rounded-md ${
-                item.sender === 'user'
+              className={`text-[10px] font-bold uppercase tracking-wider mb-1 px-2 py-0.5 rounded-md ${item.sender === 'user'
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-              }`}
+                }`}
             >
               {item.sender === 'user' ? 'Anda' : 'KangAjie AI'}
             </span>
             <p
-              className={`text-sm sm:text-[15px] leading-relaxed rounded-xl px-3.5 py-2.5 max-w-[90%] ${
-                item.sender === 'user'
+              className={`text-sm sm:text-[15px] leading-relaxed rounded-xl px-3.5 py-2.5 max-w-[90%] ${item.sender === 'user'
                   ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-800/40'
                   : 'bg-[#222226] text-gray-200 border border-[#323238]'
-              }`}
+                }`}
             >
               {item.text}
             </p>
@@ -493,17 +547,29 @@ export default function VoiceCallModal({
 
         <div ref={transcriptEndRef} />
       </div>
+      )}
 
       {/* Bottom Controls Bar */}
-      <div className="flex items-center justify-center gap-6 z-10 pt-2 pb-4 shrink-0">
+      <div className="flex items-center justify-center gap-4 sm:gap-6 z-10 pt-2 pb-4 shrink-0">
+        {/* Toggle Log Button */}
+        <button
+          onClick={() => setShowLog(!showLog)}
+          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-lg transition cursor-pointer border shadow-lg ${showLog
+              ? 'bg-blue-500/20 text-blue-400 border-blue-500/50 hover:bg-blue-500/30'
+              : 'bg-[#1E1E22] hover:bg-[#2A2A30] text-gray-400 border-[#303036] hover:text-white'
+            }`}
+          title={showLog ? 'Sembunyikan Teks Log' : 'Tampilkan Teks Log'}
+        >
+          <i className="fa-solid fa-file-lines" />
+        </button>
+
         {/* Mute Button */}
         <button
           onClick={toggleMute}
-          className={`w-14 h-14 rounded-full flex items-center justify-center text-lg transition cursor-pointer border shadow-lg ${
-            isMuted
+          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-lg transition cursor-pointer border shadow-lg ${isMuted
               ? 'bg-red-500/20 text-red-400 border-red-500/50 hover:bg-red-500/30'
               : 'bg-[#1E1E22] hover:bg-[#2A2A30] text-gray-300 border-[#303036] hover:text-white'
-          }`}
+            }`}
           title={isMuted ? 'Nyalakan Mikrofon' : 'Bisukan Mikrofon'}
         >
           <i className={`fa-solid ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'}`} />
@@ -512,7 +578,7 @@ export default function VoiceCallModal({
         {/* Manual Listen / Potong Suara button */}
         <button
           onClick={handleManualStart}
-          className="w-14 h-14 rounded-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 flex items-center justify-center text-lg transition cursor-pointer shadow-lg"
+          className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 flex items-center justify-center text-lg transition cursor-pointer shadow-lg"
           title="Mulai bicara manual / Potong Suara AI"
         >
           <i className="fa-solid fa-rotate-right" />
@@ -521,7 +587,7 @@ export default function VoiceCallModal({
         {/* Big Red Hang Up Button */}
         <button
           onClick={handleEndCall}
-          className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-2xl shadow-xl shadow-red-600/40 hover:scale-105 transition cursor-pointer"
+          className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-xl sm:text-2xl shadow-xl shadow-red-600/40 hover:scale-105 transition cursor-pointer"
           title="Akhiri Panggilan (End Call)"
         >
           <i className="fa-solid fa-phone-slash" />

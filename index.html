@@ -10,9 +10,77 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <style>
+      body { margin:0; padding:0; background:#0F0F10; }
+      /* ── Loading Screen (tampil sebelum React mount) ── */
+      #app-fallback {
+        position: fixed; inset: 0; z-index: 9999;
+        background: linear-gradient(160deg,#0F0F10 0%,#141418 50%,#0F0F10 100%);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        font-family: 'Plus Jakarta Sans',sans-serif;
+      }
+      .fb-glow {
+        position: absolute; border-radius: 50%; pointer-events: none;
+      }
+      .fb-glow-1 {
+        top:20%;left:50%;transform:translateX(-50%);
+        width:250px;height:250px;
+        background:radial-gradient(circle,rgba(234,179,8,.08) 0%,transparent 70%);
+      }
+      .fb-spinner-container {
+        position: relative;
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: 24px; z-index: 10;
+      }
+      .fb-logo {
+        width: 60px; height: 60px;
+        background: linear-gradient(135deg, #1F1F22, #252528);
+        border-radius: 18px; display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(234,179,8,0.2); font-size: 28px;
+        position: relative; z-index: 2;
+        box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      }
+      /* Cincin berputar */
+      .fb-ring {
+        position: absolute; inset: -12px;
+        border: 2px solid transparent;
+        border-top-color: #EAB308;
+        border-right-color: rgba(234,179,8,0.3);
+        border-radius: 50%;
+        animation: fb-spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        z-index: 1;
+      }
+      .fb-text {
+        color: #9CA3AF; font-size: 13px; font-weight: 500;
+        letter-spacing: 1px; z-index: 10; text-transform: uppercase;
+      }
+      @keyframes fb-spin { to { transform:rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loading UI: muncul sebelum React mount. React otomatis menimpanya/menghapusnya. -->
+      <div id="app-fallback">
+        <div class="fb-glow fb-glow-1"></div>
+        <div class="fb-spinner-container">
+          <div class="fb-ring"></div>
+          <div class="fb-logo">
+            <span style="color: #EAB308; font-weight: 800; font-size: 22px; letter-spacing: -1px;">AI</span>
+          </div>
+        </div>
+        <p class="fb-text">Memuat Ruang AI...</p>
+      </div>
+    </div>
+
+    <script>
+      // Sembunyikan fallback jika React berhasil mount
+      window.__hideFallback = function() {
+        var el = document.getElementById('app-fallback');
+        if (el) el.style.display = 'none';
+      };
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

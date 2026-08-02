@@ -55,12 +55,12 @@ export default function ChatPage() {
   const hasForkedRef = useRef(false);
   useEffect(() => {
     const forkId = searchParams.get('fork');
-    const pendingFork = localStorage.getItem('pendingFork');
+    const pendingFork = (() => { try { return localStorage.getItem('pendingFork'); } catch { return null; } })();
 
     if (forkId && !hasForkedRef.current) {
       hasForkedRef.current = true;
       if (!user && !isGuest) {
-        localStorage.setItem('pendingFork', forkId);
+        try { localStorage.setItem('pendingFork', forkId); } catch { }
         navigate('/login');
         return;
       }
@@ -69,7 +69,7 @@ export default function ChatPage() {
           const data = await shareForkSession(forkId);
           if (data) await forkSession(forkId, data.title, data.messages);
           else startNewChat();
-          localStorage.removeItem('pendingFork');
+          try { localStorage.removeItem('pendingFork'); } catch { }
         } catch {
           startNewChat();
         } finally {
@@ -82,7 +82,7 @@ export default function ChatPage() {
         try {
           const data = await shareForkSession(pendingFork);
           if (data) await forkSession(pendingFork, data.title, data.messages);
-          localStorage.removeItem('pendingFork');
+          try { localStorage.removeItem('pendingFork'); } catch { }
         } catch {
         } finally {
           navigate('/', { replace: true });
@@ -207,17 +207,7 @@ export default function ChatPage() {
               </button>
             )}
 
-            {/* Live Voice Call (Telepon AI) button */}
-            <button
-              id="header-voice-call-btn"
-              onClick={() => setIsVoiceCallOpen(true)}
-              title="Mulai panggilan suara langsung dengan KangAjie AI (Voice Mode)"
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500/15 to-yellow-500/15 hover:from-emerald-500/25 hover:to-yellow-500/25 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 rounded-xl text-xs font-semibold transition cursor-pointer shadow-sm"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              <i className="fa-solid fa-phone-volume text-xs" />
-              <span className="hidden sm:inline">Telepon AI</span>
-            </button>
+
           </div>
 
           {/* ── Chat Area ──────────────────────────────────────────────────── */}
