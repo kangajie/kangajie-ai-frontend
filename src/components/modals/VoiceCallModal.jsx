@@ -36,6 +36,8 @@ export default function VoiceCallModal({
 
   const recognitionRef = useRef(null);
   const silenceTimerRef = useRef(null);
+  // Hapus semua ref VAD rumit, kembali ke sistem dasar
+  const isListeningRef = useRef(false);
   const isModalOpenRef = useRef(isOpen);
   const isMutedRef = useRef(isMuted);
   const callStateRef = useRef('listening');
@@ -82,10 +84,7 @@ export default function VoiceCallModal({
       return;
     }
 
-    // Segera matikan mic jika AI mau bicara (mencegah bug mic mendengar AI)
-    try {
-      recognitionRef.current?.abort();
-    } catch { }
+    // Mic tetap aktif agar user bisa melakukan interupsi suara (Voice Activity Detection)
 
     window.speechSynthesis?.cancel();
     const clean = cleanTextForSpeech(text);
@@ -93,6 +92,14 @@ export default function VoiceCallModal({
       if (onFinish) onFinish();
       return;
     }
+
+    // MATIKAN MIC SAAT AI BICARA AGAR TIDAK DENGAR SUARANYA SENDIRI!
+    const oldRec = recognitionRef.current;
+    recognitionRef.current = null;
+    isListeningRef.current = false;
+    try {
+      oldRec?.abort();
+    } catch { }
 
     updateState('ai_speaking');
 
@@ -124,8 +131,13 @@ export default function VoiceCallModal({
       // Pastikan onend berasal dari utterance aktif (mencegah bug onend palsu akibat cancel)
       if (currentUtteranceRef.current === utterance) {
         currentUtteranceRef.current = null;
+        updateState('listening');
         if (isModalOpenRef.current && onFinish) {
           onFinish();
+        }
+        // Nyalakan mic kembali setelah selesai bicara
+        if (isModalOpenRef.current && !isMutedRef.current) {
+           startListening();
         }
       }
     };
@@ -146,9 +158,10 @@ export default function VoiceCallModal({
 
   // ─── Mulai mendengarkan suara user (Web Speech API) ────────────────────────
   const startListening = useCallback(() => {
-    if (!isModalOpenRef.current || isMutedRef.current || callStateRef.current === 'ai_speaking' || callStateRef.current === 'thinking') {
+    if (!isModalOpenRef.current || isMutedRef.current || isListeningRef.current) {
       return;
     }
+    isListeningRef.current = true;
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -156,8 +169,11 @@ export default function VoiceCallModal({
       return;
     }
 
+    // Hapus referensi sebelum abort() agar onend lama tidak lolos pengecekan (mencegah bug mic ganda!)
+    const oldMic = recognitionRef.current;
+    recognitionRef.current = null;
     try {
-      recognitionRef.current?.abort();
+      oldMic?.abort();
     } catch { }
 
     const recognition = new SpeechRecognition();
@@ -166,35 +182,27 @@ export default function VoiceCallModal({
     recognition.interimResults = true;
 
     recognition.onstart = () => {
-      if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current !== 'ai_speaking' && callStateRef.current !== 'thinking') {
-        updateState('listening');
-        setUserTranscript('');
+      if (isModalOpenRef.current && !isMutedRef.current) {
+        if (callStateRef.current !== 'ai_speaking' && callStateRef.current !== 'thinking') {
+          updateState('listening');
+          setUserTranscript('');
+        }
       }
     };
 
     recognition.onresult = (event) => {
       let currentText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        currentText += event.results[i][0].transcript;
+        let t = event.results[i][0].transcript.trim();
+        if (t) currentText += ' ' + t;
       }
       const trimmed = currentText.trim();
       if (!trimmed) return;
 
       setUserTranscript(trimmed);
 
-      // --- VOICE INTERRUPTION LOGIC ---
-      if ((callStateRef.current === 'ai_speaking' || callStateRef.current === 'thinking') && trimmed.length > 10) {
-        window.speechSynthesis?.cancel();
-        if (currentUtteranceRef.current) {
-          currentUtteranceRef.current.onend = null;
-        }
-        currentUtteranceRef.current = null;
-        currentTurnRef.current = Date.now();
-        updateState('listening');
-      }
-
-      // Setelah user hening 1 detik, langsung proses ucapan ke AI
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
       silenceTimerRef.current = setTimeout(() => {
         if (isModalOpenRef.current && trimmed.length > 0) {
           handleVoiceTurn(trimmed);
@@ -203,19 +211,14 @@ export default function VoiceCallModal({
     };
 
     recognition.onerror = () => {
-      if (recognitionRef.current === recognition) {
-        setTimeout(() => {
-          if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
-            startListening();
-          }
-        }, 400);
-      }
     };
 
     recognition.onend = () => {
       if (recognitionRef.current === recognition) {
-        if (isModalOpenRef.current && !isMutedRef.current) {
-          setTimeout(() => startListening(), 350);
+        isListeningRef.current = false;
+        // Hanya restart otomatis jika tidak sedang dimatikan secara manual (misal saat mikir/bicara)
+        if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current !== 'ai_speaking' && callStateRef.current !== 'thinking') {
+          setTimeout(() => startListening(), 250);
         }
       }
     };
@@ -229,6 +232,14 @@ export default function VoiceCallModal({
   // ─── Kirim ucapan ke backend & langsung jawab dengan suara (TIDAK DISIMPAN) ───
   const handleVoiceTurn = async (userText) => {
     if (!userText || !isModalOpenRef.current) return;
+
+    // Matikan mic sementara saat mikir
+    const oldRec = recognitionRef.current;
+    recognitionRef.current = null;
+    isListeningRef.current = false;
+    try {
+      oldRec?.abort();
+    } catch { }
     
     const turnId = Date.now();
     currentTurnRef.current = turnId;
@@ -250,7 +261,7 @@ export default function VoiceCallModal({
             role: 'user',
             parts: [
               {
-                text: '[INSTRUKSI KHUSUS MODE TELEPON / VOICE CALL]: Kita sedang mengobrol via telepon langsung. Jawablah dengan gaya bicara yang SANGAT ALAMI, luwes, ramah, komunikatif, dan mendalam layaknya manusia yang sedang berbincang akrab di telepon. Jangan terlalu singkat atau kaku, jelaskan dengan baik dan jelas agar nyaman didengar lisan, serta boleh ajukan pertanyaan balik yang relevan agar percakapan hidup.',
+                text: '[INSTRUKSI KHUSUS MODE TELEPON / VOICE CALL]: Kita sedang mengobrol santai via telepon. Jadilah sosok yang SANGAT ASYIK, seru, humoris, dan penuh ekspresi! Wajib gunakan gaya bicara tongkrongan yang luwes dan natural. PERBANYAK sisipkan ekspresi suara seperti "hahaha", "hehehe", "wkwkwk", "hmm...", "ehem", "aduh", "wow!", atau "oh gitu ya" sesuai konteks obrolan. Jangan kaku seperti robot, hindari bahasa baku. Berikan reaksi emosional yang lebay atau antusias kalau ceritanya seru. Jawablah layaknya teman akrab (bestie) yang sedang asyik nongkrong dan teleponan. Boleh bercanda, meledek ringan, tertawa renyah, dan selalu lemparkan pertanyaan balik yang asyik agar obrolan kita hidup dan ngalir terus.',
               },
             ],
           },
@@ -258,7 +269,7 @@ export default function VoiceCallModal({
             role: 'model',
             parts: [
               {
-                text: 'Baik, saya siap mengobrol dengan ramah, hangat, jelas, dan komunikatif seperti sesama manusia yang berbincang di telepon!',
+                text: 'Hahaha, wkwkwk siap banget bos! Aku bakal ngobrol santai dan asyik banget sama kamu layaknya bestie yang lagi nongkrong. Hmm... kira-kira ada cerita seru apa nih hari ini? Cerita dong!',
               },
             ],
           },
@@ -350,15 +361,29 @@ export default function VoiceCallModal({
     if (isMuted) {
       setIsMuted(false);
       isMutedRef.current = false;
-      updateState('listening');
-      startListening();
+      
+      if (currentUtteranceRef.current) {
+        updateState('ai_speaking');
+      } else {
+        updateState('listening');
+        startListening();
+      }
     } else {
       setIsMuted(true);
       isMutedRef.current = true;
-      updateState('muted');
+      
+      if (currentUtteranceRef.current) {
+        updateState('ai_speaking');
+      } else {
+        updateState('muted');
+      }
+      
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      const oldRec = recognitionRef.current;
+      recognitionRef.current = null;
+      isListeningRef.current = false;
       try {
-        recognitionRef.current?.stop();
+        oldRec?.stop();
       } catch { }
     }
   };
@@ -372,6 +397,7 @@ export default function VoiceCallModal({
     // Hapus referensi agar event onend lama tidak memicu restart ganda
     const oldRec = recognitionRef.current;
     recognitionRef.current = null;
+    isListeningRef.current = false;
     try {
       oldRec?.abort();
     } catch { }
@@ -513,7 +539,7 @@ export default function VoiceCallModal({
           {callState === 'muted' && 'Mikrofon Bisu'}
         </h2>
         <p className="text-sm text-gray-400 max-w-sm">
-          {callState === 'ai_speaking' && 'Klik lingkaran untuk menyela atau bicara manual.'}
+          {callState === 'ai_speaking' && 'Klik ikon tangan di bawah untuk menyela AI.'}
           {callState === 'listening' && 'Silakan bicara senatural mungkin, saya merespons.'}
           {callState === 'thinking' && 'Memproses ucapan Anda...'}
           {callState === 'muted' && 'Klik ikon mikrofon di bawah untuk mulai bicara.'}
@@ -594,9 +620,9 @@ export default function VoiceCallModal({
         <button
           onClick={handleManualStart}
           className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 flex items-center justify-center text-lg transition cursor-pointer shadow-lg"
-          title="Mulai bicara manual / Potong Suara AI"
+          title="Potong Suara AI"
         >
-          <i className="fa-solid fa-rotate-right" />
+          <i className="fa-solid fa-hand-paper" />
         </button>
 
         {/* Big Red Hang Up Button */}

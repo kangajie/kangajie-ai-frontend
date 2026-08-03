@@ -71,7 +71,7 @@ export default class ErrorBoundary extends Component {
           fontWeight: '800',
           letterSpacing: '-1px'
         }}>
-          AI
+          KA
         </div>
 
         {/* Brand name */}

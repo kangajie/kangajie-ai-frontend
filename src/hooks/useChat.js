@@ -277,10 +277,11 @@ export function useChat() {
     }
 
     // Ekstrak pesan pertama dari user untuk dijadikan judul jika ini sesi baru
-    let firstUserText = 'Telepon Suara';
+    let firstUserText = 'Panggilan Suara';
     const firstUserMsg = transcriptArray.find(t => t.sender === 'user');
     if (firstUserMsg && firstUserMsg.text) {
-      firstUserText = 'Telepon: ' + firstUserMsg.text.slice(0, 30) + '...';
+      firstUserText = firstUserMsg.text.slice(0, 40);
+      if (firstUserMsg.text.length > 40) firstUserText += '...';
     }
 
     // Map transcript to message state format

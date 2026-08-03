@@ -22,9 +22,17 @@ export default function Sources({ sources }) {
         {sources.map((s, index) => {
           const domain = getDomain(s.url);
           let displayTitle = s.title || domain;
-          // Hapus embel-embel vertexaisearch atau Google Search yang tidak relevan
+          let displayDomain = domain;
+          
+          // Jika URL sebenarnya adalah vertexaisearch (seperti pada screenshot)
+          if (domain.toLowerCase().includes('vertexaisearch')) {
+            // Gunakan judul asli (yang biasanya berisi domain asli dari Gemini) sebagai domain
+            displayDomain = s.title ? getDomain('http://' + s.title) : 'Google Search';
+          }
+
+          // Hapus embel-embel vertexaisearch atau Google Search pada title yang tidak relevan
           if (displayTitle.toLowerCase().replace(/\s+/g, '').includes('vertexai') || displayTitle.toLowerCase().includes('google search')) {
-            displayTitle = domain;
+            displayTitle = displayDomain;
           }
           const safeTitle = displayTitle.replace(/"/g, '&quot;').replace(/</g, '&lt;');
           const faviconFallback = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23333%22/><text x=%228%22 y=%2212%22 text-anchor=%22middle%22 font-size=%2210%22 fill=%22%23888%22>?</text></svg>";
@@ -51,7 +59,7 @@ export default function Sources({ sources }) {
               onMouseOut={(e) => { e.currentTarget.style.borderColor = '#2A2A2E'; e.currentTarget.style.background = '#141416'; }}
             >
               <img
-                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+                src={`https://www.google.com/s2/favicons?domain=${displayDomain}&sz=32`}
                 alt=""
                 style={{ width: '16px', height: '16px', borderRadius: '3px', flexShrink: 0, marginTop: '1px' }}
                 onError={(e) => { e.target.src = faviconFallback; }}
@@ -62,7 +70,7 @@ export default function Sources({ sources }) {
                 </div>
                 <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '8px' }} />
-                  {domain}
+                  {displayDomain}
                 </div>
               </div>
             </a>
