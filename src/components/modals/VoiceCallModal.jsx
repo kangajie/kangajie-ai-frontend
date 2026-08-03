@@ -182,16 +182,24 @@ export default function VoiceCallModal({
 
       setUserTranscript(trimmed);
 
-      // Setelah user hening 1.8 detik, langsung proses ucapan ke AI tanpa disimpan ke chat utama!
+      // --- VOICE INTERRUPTION LOGIC ---
+      if ((callStateRef.current === 'ai_speaking' || callStateRef.current === 'thinking') && trimmed.length > 5) {
+        window.speechSynthesis?.cancel();
+        if (currentUtteranceRef.current) {
+          currentUtteranceRef.current.onend = null;
+        }
+        currentUtteranceRef.current = null;
+        currentTurnRef.current = Date.now();
+        updateState('listening');
+      }
+
+      // Setelah user hening 1 detik, langsung proses ucapan ke AI
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         if (isModalOpenRef.current && trimmed.length > 0) {
-          try {
-            recognition.stop();
-          } catch { }
           handleVoiceTurn(trimmed);
         }
-      }, 1800);
+      }, 1000);
     };
 
     recognition.onerror = () => {
@@ -206,7 +214,7 @@ export default function VoiceCallModal({
 
     recognition.onend = () => {
       if (recognitionRef.current === recognition) {
-        if (isModalOpenRef.current && !isMutedRef.current && callStateRef.current === 'listening') {
+        if (isModalOpenRef.current && !isMutedRef.current) {
           setTimeout(() => startListening(), 350);
         }
       }
@@ -283,7 +291,7 @@ export default function VoiceCallModal({
 
       // SIMPAN KE RIWAYAT UTAMA CHAT (Database & UI background)
       if (onVoiceTurn) {
-        onVoiceTurn(userText, replyText);
+        onVoiceTurn(userText, replyText, res?.title);
       }
 
       // LANGSUNG JAWAB DALAM BENTUK SUARA SECARA OTOMATIS!

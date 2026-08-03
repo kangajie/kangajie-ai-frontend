@@ -268,7 +268,7 @@ export function useChat() {
   }, [currentSessionId, startNewChat, saveSessionTitle, saveDataForSession, getUserName, user]);
 
   // ─── Save Silent Interaction (Untuk menyinkronkan Voice Call Modal ke Chat Utama)
-  const saveSilentInteraction = useCallback(async (userText, aiText) => {
+  const saveSilentInteraction = useCallback(async (userText, aiText, customTitle = null) => {
     let sessionId = currentSessionId;
     if (!sessionId) {
       sessionId = startNewChat();
@@ -291,7 +291,7 @@ export function useChat() {
     // Save to database
     try {
       if (historyRef.current.length <= 2) {
-        await saveSessionTitle(sessionId, 'Telepon Suara');
+        await saveSessionTitle(sessionId, customTitle || 'Telepon Suara');
       }
       await saveDataForSession(sessionId, 'user', userText);
       await saveDataForSession(sessionId, 'ai', aiText);
