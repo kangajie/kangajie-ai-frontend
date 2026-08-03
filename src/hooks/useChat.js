@@ -265,7 +265,40 @@ export function useChat() {
       activeRequests.current.delete(sessionId);
       setIsSending(false);
     }
-  }, [currentSessionId, saveSessionTitle, saveDataForSession, startNewChat, getUserName, user]);
+  }, [currentSessionId, startNewChat, saveSessionTitle, saveDataForSession, getUserName, user]);
+
+  // ─── Save Silent Interaction (Untuk menyinkronkan Voice Call Modal ke Chat Utama)
+  const saveSilentInteraction = useCallback(async (userText, aiText) => {
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      sessionId = startNewChat();
+    }
+    
+    // Add to state instantly
+    setMessages(prev => [
+      ...prev,
+      { id: Date.now(), role: 'user', text: userText, rawText: userText, isAnimated: false, sessionId },
+      { id: Date.now() + 1, role: 'ai', text: aiText, rawText: aiText, isAnimated: false, sessionId }
+    ]);
+
+    // Update internal history for future context
+    historyRef.current = [
+      ...historyRef.current,
+      { role: 'user', parts: [{ text: userText }] },
+      { role: 'model', parts: [{ text: aiText }] }
+    ];
+
+    // Save to database
+    try {
+      if (historyRef.current.length <= 2) {
+        await saveSessionTitle(sessionId, 'Telepon Suara');
+      }
+      await saveDataForSession(sessionId, 'user', userText);
+      await saveDataForSession(sessionId, 'ai', aiText);
+    } catch (err) {
+      console.error('Failed saving voice interaction to DB:', err);
+    }
+  }, [currentSessionId, startNewChat, saveDataForSession, saveSessionTitle]);
 
   // ─── Stop ─────────────────────────────────────────────────────────────────────
   const stopGeneration = useCallback(() => {
@@ -296,6 +329,7 @@ export function useChat() {
     messages,
     isSending,
     sendMessage,
+    saveSilentInteraction,
     stopGeneration,
     clearChat,
   };

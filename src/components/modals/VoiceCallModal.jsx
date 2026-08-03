@@ -16,6 +16,7 @@ const cleanTextForSpeech = (text) => {
 export default function VoiceCallModal({
   isOpen,
   onClose,
+  onVoiceTurn,
 }) {
   // callState: 'idle' | 'listening' | 'thinking' | 'ai_speaking' | 'muted'
   const [callState, setCallState] = useState('listening');
@@ -279,6 +280,11 @@ export default function VoiceCallModal({
         ...prev,
         { id: Date.now() + '-ai', sender: 'ai', text: replyText },
       ]);
+
+      // SIMPAN KE RIWAYAT UTAMA CHAT (Database & UI background)
+      if (onVoiceTurn) {
+        onVoiceTurn(userText, replyText);
+      }
 
       // LANGSUNG JAWAB DALAM BENTUK SUARA SECARA OTOMATIS!
       speakAI(replyText, () => {

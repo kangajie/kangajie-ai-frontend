@@ -22,7 +22,7 @@ export default function ChatPage() {
   const { currentSessionId, loadSidebarHistory, forkSession, startNewChat } = useSessions();
 
   // Chat
-  const { messages, isSending, sendMessage, stopGeneration } = useChat();
+  const { messages, isSending, sendMessage, stopGeneration, saveSilentInteraction } = useChat();
 
   // Suggestions
   const { suggestions, isLoading: suggestionsLoading } = useSuggestions();
@@ -233,6 +233,7 @@ export default function ChatPage() {
           <VoiceCallModal
             isOpen={isVoiceCallOpen}
             onClose={() => setIsVoiceCallOpen(false)}
+            onVoiceTurn={saveSilentInteraction}
           />
         </>
       )}
