@@ -24,7 +24,8 @@ export default class ErrorBoundary extends Component {
     if (!this.state.hasError) return this.props.children;
 
     const href = window.location.href;
-    const chromeUrl = `googlechrome://navigate?url=${encodeURIComponent(href)}`;
+    const cleanUrl = href.replace(/^https?:\/\//, '');
+    const chromeUrl = `intent://${cleanUrl}#Intent;scheme=https;package=com.android.chrome;end`;
 
     return (
       <div style={{
@@ -65,9 +66,12 @@ export default class ErrorBoundary extends Component {
           marginBottom: '24px',
           border: '1px solid rgba(234,179,8,0.2)',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03)',
-          fontSize: '32px',
+          color: '#EAB308',
+          fontSize: '28px',
+          fontWeight: '800',
+          letterSpacing: '-1px'
         }}>
-          🤖
+          AI
         </div>
 
         {/* Brand name */}
@@ -123,7 +127,13 @@ export default class ErrorBoundary extends Component {
             textDecoration: 'none',
             boxShadow: '0 4px 20px rgba(234,179,8,0.3)',
           }}>
-            <span style={{ fontSize: '16px' }}></span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="21.17" y1="8" x2="12" y2="8"></line>
+              <line x1="3.95" y1="6.06" x2="8.54" y2="14"></line>
+              <line x1="10.88" y1="21.94" x2="15.46" y2="14"></line>
+            </svg>
             Buka di Chrome
           </a>
 
@@ -140,18 +150,22 @@ export default class ErrorBoundary extends Component {
               width: '100%',
             }}
           >
-            <span style={{ fontSize: '16px' }}></span>
-            Coba Lagi
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 2v6h-6"></path>
+              <path d="M3 12a9 9 0 1 0 2.5-6.5L21 8"></path>
+            </svg>
+            Muat Ulang Aplikasi
           </button>
         </div>
 
         {/* Footer note */}
-        <p style={{
+        <a href="https://ai.kangajie.my.id" style={{
           marginTop: '40px', fontSize: '11px',
-          color: '#4B5563', letterSpacing: '0.5px',
+          color: '#EAB308', letterSpacing: '0.5px',
+          textDecoration: 'none', fontWeight: '600'
         }}>
           ai.kangajie.my.id
-        </p>
+        </a>
       </div>
     );
   }
