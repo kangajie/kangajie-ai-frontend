@@ -16,7 +16,7 @@ const cleanTextForSpeech = (text) => {
 export default function VoiceCallModal({
   isOpen,
   onClose,
-  onVoiceTurn,
+  onVoiceCallEnd,
 }) {
   // callState: 'idle' | 'listening' | 'thinking' | 'ai_speaking' | 'muted'
   const [callState, setCallState] = useState('listening');
@@ -183,7 +183,7 @@ export default function VoiceCallModal({
       setUserTranscript(trimmed);
 
       // --- VOICE INTERRUPTION LOGIC ---
-      if ((callStateRef.current === 'ai_speaking' || callStateRef.current === 'thinking') && trimmed.length > 5) {
+      if ((callStateRef.current === 'ai_speaking' || callStateRef.current === 'thinking') && trimmed.length > 10) {
         window.speechSynthesis?.cancel();
         if (currentUtteranceRef.current) {
           currentUtteranceRef.current.onend = null;
@@ -289,11 +289,6 @@ export default function VoiceCallModal({
         { id: Date.now() + '-ai', sender: 'ai', text: replyText },
       ]);
 
-      // SIMPAN KE RIWAYAT UTAMA CHAT (Database & UI background)
-      if (onVoiceTurn) {
-        onVoiceTurn(userText, replyText, res?.title);
-      }
-
       // LANGSUNG JAWAB DALAM BENTUK SUARA SECARA OTOMATIS!
       speakAI(replyText, () => {
         if (isModalOpenRef.current && !isMutedRef.current) {
@@ -397,6 +392,12 @@ export default function VoiceCallModal({
   };
 
   const handleEndCall = () => {
+    if (onVoiceCallEnd && liveTranscript.length > 0) {
+      onVoiceCallEnd(liveTranscript);
+    }
+    
+    // Reset transkrip untuk sesi berikutnya
+    setLiveTranscript([]);
     voiceHistoryRef.current = [];
     window.speechSynthesis?.cancel();
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);

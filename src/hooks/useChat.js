@@ -267,40 +267,54 @@ export function useChat() {
     }
   }, [currentSessionId, startNewChat, saveSessionTitle, saveDataForSession, getUserName, user]);
 
-  // ─── Save Silent Interaction (Untuk menyinkronkan Voice Call Modal ke Chat Utama)
-  const saveSilentInteraction = useCallback(async (userText, aiText, customTitle = null) => {
+  // ─── Save Bulk Voice Call (Untuk menyimpan seluruh transkrip saat telepon ditutup)
+  const saveBulkVoiceCall = useCallback(async (transcriptArray) => {
+    if (!transcriptArray || transcriptArray.length === 0) return;
+
     let sessionId = currentSessionId;
     if (!sessionId) {
       sessionId = startNewChat();
     }
-    
-    // Add to state instantly
-    setMessages(prev => [
-      ...prev,
-      { id: Date.now(), role: 'user', text: userText, rawText: userText, isAnimated: false, sessionId },
-      { id: Date.now() + 1, role: 'ai', text: aiText, rawText: aiText, isAnimated: false, sessionId }
-    ]);
 
-    // Update internal history for future context
-    historyRef.current = [
-      ...historyRef.current,
-      { role: 'user', parts: [{ text: userText }] },
-      { role: 'model', parts: [{ text: aiText }] }
-    ];
-
-    // Save to database
-    try {
-      if (historyRef.current.length <= 2) {
-        await saveSessionTitle(sessionId, customTitle || 'Telepon Suara');
-      }
-      await saveDataForSession(sessionId, 'user', userText);
-      await saveDataForSession(sessionId, 'ai', aiText);
-    } catch (err) {
-      console.error('Failed saving voice interaction to DB:', err);
+    // Ekstrak pesan pertama dari user untuk dijadikan judul jika ini sesi baru
+    let firstUserText = 'Telepon Suara';
+    const firstUserMsg = transcriptArray.find(t => t.sender === 'user');
+    if (firstUserMsg && firstUserMsg.text) {
+      firstUserText = 'Telepon: ' + firstUserMsg.text.slice(0, 30) + '...';
     }
-  }, [currentSessionId, startNewChat, saveDataForSession, saveSessionTitle]);
 
-  // ─── Stop ─────────────────────────────────────────────────────────────────────
+    // Map transcript to message state format
+    const newMessages = transcriptArray.map((t, idx) => ({
+      id: Date.now() + idx,
+      role: t.sender === 'user' ? 'user' : 'ai',
+      text: t.text,
+      rawText: t.text,
+      isAnimated: false,
+      sessionId
+    }));
+
+    // Update state & history
+    setMessages(prev => [...prev, ...newMessages]);
+    
+    const newHistoryParts = transcriptArray.map(t => ({
+      role: t.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: t.text }]
+    }));
+    historyRef.current = [...historyRef.current, ...newHistoryParts];
+
+    // Save to DB
+    try {
+      if (historyRef.current.length <= newHistoryParts.length + 2) {
+        await saveSessionTitle(sessionId, firstUserText);
+      }
+      for (const t of transcriptArray) {
+        await saveDataForSession(sessionId, t.sender === 'user' ? 'user' : 'ai', t.text);
+      }
+    } catch (err) {
+      console.error('Failed saving bulk voice log:', err);
+    }
+  }, [currentSessionId, startNewChat, saveSessionTitle, saveDataForSession]);
+
   const stopGeneration = useCallback(() => {
     const sid = currentSessionId;
     if (!activeRequests.current.has(sid)) return;
@@ -329,7 +343,7 @@ export function useChat() {
     messages,
     isSending,
     sendMessage,
-    saveSilentInteraction,
+    saveBulkVoiceCall,
     stopGeneration,
     clearChat,
   };
