@@ -21,7 +21,12 @@ export default function Sources({ sources }) {
       <div className="sources-grid">
         {sources.map((s, index) => {
           const domain = getDomain(s.url);
-          const safeTitle = (s.title || domain || s.url).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+          let displayTitle = s.title || domain;
+          // Hapus embel-embel vertexaisearch atau Google Search yang tidak relevan
+          if (displayTitle.toLowerCase().replace(/\s+/g, '').includes('vertexai') || displayTitle.toLowerCase().includes('google search')) {
+            displayTitle = domain;
+          }
+          const safeTitle = displayTitle.replace(/"/g, '&quot;').replace(/</g, '&lt;');
           const faviconFallback = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%23333%22/><text x=%228%22 y=%2212%22 text-anchor=%22middle%22 font-size=%2210%22 fill=%22%23888%22>?</text></svg>";
 
           return (
@@ -53,7 +58,7 @@ export default function Sources({ sources }) {
               />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div className="line-clamp-2" style={{ fontSize: '12px', color: '#e5e7eb', fontWeight: 500, lineHeight: 1.4 }}>
-                  {s.title}
+                  {displayTitle}
                 </div>
                 <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '8px' }} />
